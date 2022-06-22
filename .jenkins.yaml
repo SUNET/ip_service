@@ -1,0 +1,3 @@
+triggers:
+  cron: "@weekly"
+docker_name: ip_service
