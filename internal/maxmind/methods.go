@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/oschwald/geoip2-golang"
 )
 
@@ -101,21 +100,21 @@ func (s *Service) unTAR(dbType string) error {
 	}
 }
 
-func (s *Service) getRemoteVersion(ctx context.Context, dbType, url string) (time.Time, error) {
+func (s *Service) getRemoteVersion(ctx context.Context, dbType, url string) (string, error) {
 	resp, err := http.Head(fmt.Sprintf(url, s.cfg.MaxMind.LicenseKey))
 	if err != nil {
-		return time.Time{}, err
+		return "", err
 	}
 
 	if resp.StatusCode != 200 {
-		return time.Time{}, fmt.Errorf("Errors status code: %d", resp.StatusCode)
+		return "", fmt.Errorf("Errors status code: %d", resp.StatusCode)
 	}
 
 	remoteLastMod, err := time.Parse(time.RFC1123, resp.Header.Get("last-modified"))
 	if err != nil {
-		return time.Time{}, err
+		return "", err
 	}
-	return remoteLastMod, nil
+	return remoteLastMod.String(), nil
 }
 
 func (s *Service) isNewVersion(ctx context.Context, dbType, url string) (bool, error) {
@@ -124,12 +123,7 @@ func (s *Service) isNewVersion(ctx context.Context, dbType, url string) (bool, e
 		return false, err
 	}
 
-	savedLastMod, err := s.kvStore.Get(ctx, dbType)
-	if err != nil {
-		if err != redis.Nil {
-			return false, err
-		}
-	}
+	savedLastMod := s.kvStore.Get(ctx, dbType)
 
 	// if we can't find a saved timestamp, save it and return
 	if savedLastMod == "" {
@@ -139,12 +133,7 @@ func (s *Service) isNewVersion(ctx context.Context, dbType, url string) (bool, e
 		return true, nil
 	}
 
-	savedLastModParsed, err := time.Parse(time.RFC3339, savedLastMod)
-	if err != nil {
-		return false, err
-	}
-
-	if remoteLastMod.Equal(savedLastModParsed) {
+	if remoteLastMod == savedLastMod {
 		s.log.Info("No new maxMind database version found")
 		return false, nil
 	}

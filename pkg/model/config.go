@@ -21,12 +21,11 @@ type Cfg struct {
 		Enterprise        bool          `yaml:"enterprise"`
 	} `yaml:"max_mind"`
 
-	Redis struct {
-		DB                  int      `yaml:"db" validate:"required"`
-		Addr                string   `yaml:"host" validate:"required_without_all=SentinelHosts SentinelServiceName"`
-		SentinelHosts       []string `yaml:"sentinel_hosts" validate:"required_without=Addr,omitempty,min=2,max=4"`
-		SentinelServiceName string   `yaml:"sentinel_service_name" validate:"required_with=SentinelHosts"`
-	} `yaml:"redis"`
+	Store struct {
+		File struct {
+			Path string `yaml:"path"`
+		} `yaml:"file"`
+	} `yaml:"store"`
 }
 
 type Config struct {

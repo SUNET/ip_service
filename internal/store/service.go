@@ -2,10 +2,11 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/peterbourgon/diskv/v3"
 )
 
 type Service struct {
@@ -14,9 +15,9 @@ type Service struct {
 	KV  *KV
 }
 
-// KV redis storage object
+// KV key-value storage object
 type KV struct {
-	Redis *redis.Client
+	File *diskv.Diskv
 }
 
 // New creates a new instance of store
@@ -34,17 +35,15 @@ func New(ctx context.Context, cfg *model.Cfg, log *logger.Logger) (*Service, err
 }
 
 func (s *Service) newKV(ctx context.Context) error {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: s.cfg.Redis.Addr,
-		DB:   s.cfg.Redis.DB,
+	diskvClient := diskv.New(diskv.Options{
+		BasePath:     "store",
+		Transform:    func(s string) []string { return []string{} },
+		CacheSizeMax: 1024 * 1024,
 	})
-
-	if err := redisClient.Ping(ctx).Err(); err != nil {
-		return err
-	}
+	fmt.Println("client", diskvClient.WriteString("test", "test"))
 
 	kv := &KV{
-		Redis: redisClient,
+		File: diskvClient,
 	}
 
 	s.KV = kv

@@ -23,8 +23,8 @@ type Service struct {
 }
 
 type kvStore interface {
-	Set(ctx context.Context, k string, v interface{}) error
-	Get(ctx context.Context, k string) (string, error)
+	Set(ctx context.Context, k string, v string) error
+	Get(ctx context.Context, k string) string
 }
 
 type dbObject struct {
@@ -54,7 +54,6 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, log *logger.
 	for dbType, object := range s.dbFiles {
 		s.openDB(ctx, dbType, object.url, object.filePath)
 	}
-
 
 	ticker := time.NewTicker(time.Duration(s.cfg.MaxMind.UpdatePeriodicity * time.Second))
 	go func() {
