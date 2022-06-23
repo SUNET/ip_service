@@ -9,7 +9,7 @@ import (
 
 func (s *Service) endpointJSON(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ua", c.Request.UserAgent())
-	ctx = context.WithValue(ctx, "ip", c.RemoteIP())
+	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
 	reply, err := s.apiv1.JSON(ctx)
 	if err != nil {
@@ -19,7 +19,7 @@ func (s *Service) endpointJSON(ctx context.Context, c *gin.Context) (interface{}
 }
 
 func (s *Service) endpointCity(ctx context.Context, c *gin.Context) (interface{}, error) {
-	ctx = context.WithValue(ctx, "ip", c.RemoteIP())
+	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
 	reply, err := s.apiv1.City(ctx)
 	if err != nil {
@@ -29,7 +29,7 @@ func (s *Service) endpointCity(ctx context.Context, c *gin.Context) (interface{}
 }
 
 func (s *Service) endpointASN(ctx context.Context, c *gin.Context) (interface{}, error) {
-	ctx = context.WithValue(ctx, "ip", c.RemoteIP())
+	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
 	reply, err := s.apiv1.ASN(ctx)
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *Service) endpointASN(ctx context.Context, c *gin.Context) (interface{},
 }
 
 func (s *Service) endpointIP(ctx context.Context, c *gin.Context) (interface{}, error) {
-	ctx = context.WithValue(ctx, "ip", c.RemoteIP())
+	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
 	reply, err := s.apiv1.IP(ctx)
 	if err != nil {
@@ -49,7 +49,7 @@ func (s *Service) endpointIP(ctx context.Context, c *gin.Context) (interface{}, 
 }
 
 func (s *Service) endpointCountry(ctx context.Context, c *gin.Context) (interface{}, error) {
-	ctx = context.WithValue(ctx, "ip", c.RemoteIP())
+	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
 	reply, err := s.apiv1.Country(ctx)
 	if err != nil {
@@ -59,7 +59,7 @@ func (s *Service) endpointCountry(ctx context.Context, c *gin.Context) (interfac
 }
 
 func (s *Service) endpointCountryISO(ctx context.Context, c *gin.Context) (interface{}, error) {
-	ctx = context.WithValue(ctx, "ip", c.RemoteIP())
+	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
 	reply, err := s.apiv1.CountryISO(ctx)
 	if err != nil {
