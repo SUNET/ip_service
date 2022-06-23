@@ -1,3 +1,4 @@
 db/*
 bin/
 dev-config.yaml
+dev-config-docker.yaml

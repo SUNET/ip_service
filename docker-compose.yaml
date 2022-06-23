@@ -1,0 +1,45 @@
+---
+version: '3.4'
+
+services:
+  ip_service:
+    image: docker.sunet.se/ip_service:latest
+    networks:
+      ip_service_net:
+        ipv4_address: 172.16.10.250
+    ports:
+      - 8080:8080
+    volumes:
+      - ./dev-config-docker.yaml:/tmp/config.yaml:ro
+      - ip_servicedata:/db
+    environment:
+      - CONFIG_YAML=/tmp/config.yaml
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:latest
+    volumes:
+      - ../redis/etc:/etc/redis
+      - redisdata:/data
+    expose:
+      - 6379
+    networks:
+      ip_service_net:
+        ipv4_address: 172.16.10.252
+
+volumes:
+  redisdata:
+    name: redisdat
+  ip_servicedata:
+    name: ip_servicedat
+
+networks:
+  ip_service_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-ips
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.10.0/24
