@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"fmt"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
 
@@ -40,7 +39,6 @@ func (s *Service) newKV(ctx context.Context) error {
 		Transform:    func(s string) []string { return []string{} },
 		CacheSizeMax: 1024 * 1024,
 	})
-	fmt.Println("client", diskvClient.WriteString("test", "test"))
 
 	kv := &KV{
 		File: diskvClient,

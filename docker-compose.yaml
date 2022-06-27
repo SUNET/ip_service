@@ -14,8 +14,6 @@ services:
       - ip_servicedata:/db
     environment:
       - CONFIG_YAML=/tmp/config.yaml
-    depends_on:
-      - redis
 
 volumes:
   ip_servicedata:

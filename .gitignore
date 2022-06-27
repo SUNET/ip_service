@@ -5,3 +5,4 @@ dev-config-docker.yaml
 store/
 .vscode/*
 !.vscode/settings.json
+!/internal/store/
