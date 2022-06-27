@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "Apiv",
+        "ASNJSON",
         "diskv",
         "envconfig",
         "geoip",
@@ -8,6 +9,7 @@
         "httpserver",
         "indata",
         "IPJSON",
+        "ISOJSON",
         "kelseyhightower",
         "maxmind",
         "mileusna",

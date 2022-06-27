@@ -62,10 +62,19 @@ func New(ctx context.Context, config *model.Cfg, api *apiv1.Client, logger *logg
 	})
 
 	s.regEndpoint(ctx, "GET", "/", s.endpointIP)
+	s.regEndpoint(ctx, "GET", "/ip/json", s.endpointIPJSON)
+
 	s.regEndpoint(ctx, "GET", "/city", s.endpointCity)
+	s.regEndpoint(ctx, "GET", "/city/json", s.endpointCityJSON)
+
 	s.regEndpoint(ctx, "GET", "/asn", s.endpointASN)
+	s.regEndpoint(ctx, "GET", "/asn/json", s.endpointASNJSON)
+
 	s.regEndpoint(ctx, "GET", "/country", s.endpointCountry)
+	s.regEndpoint(ctx, "GET", "/country/json", s.endpointCountryJSON)
+
 	s.regEndpoint(ctx, "GET", "/country-iso", s.endpointCountryISO)
+	s.regEndpoint(ctx, "GET", "/country-iso/json", s.endpointCountryISOJSON)
 
 	s.regEndpoint(ctx, "GET", "/lookup/:ip", s.endpointLookUpIP)
 
@@ -96,7 +105,7 @@ func (s *Service) regEndpoint(ctx context.Context, method, path string, handler 
 		switch res.(type) {
 		case string, uint:
 			c.Writer.WriteString(fmt.Sprintf("%v\n", res))
-		case *model.RequestInformation:
+		case *model.RequestInformation, map[string]interface{}:
 			c.IndentedJSON(200, res)
 		}
 	})
