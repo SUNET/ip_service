@@ -19,10 +19,10 @@ type RequestInformation struct {
 	CountryISO      string       `json:"country_iso"`
 	IsEU            bool         `json:"is_eu"`
 	Region          string       `json:"region"`
-	RegionCode      string       `json:"regionCode"`
+	RegionCode      string       `json:"region_code"`
 	PostalCode      string       `json:"postal_code"`
-	Latitude        float64      `json:"Latitude"`
-	Longitude       float64      `json:"Longitude"`
+	Latitude        float64      `json:"latitude"`
+	Longitude       float64      `json:"longitude"`
 	Timezone        string       `json:"timezone"`
 	Hostname        string       `json:"hostname"`
 	UserAgent       ua.UserAgent `json:"user_agent"`
