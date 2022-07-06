@@ -1,8 +1,7 @@
 db/*
 bin/
-dev-config.yaml
-dev-config-docker.yaml
 store/
 .vscode/*
 !.vscode/settings.json
 !/internal/store/
+dev-config*
