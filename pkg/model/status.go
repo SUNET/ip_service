@@ -4,9 +4,9 @@ import "time"
 
 var (
 	// StatusOK ok
-	StatusOK = "STATUS_OK_eduid_ladok_"
+	StatusOK = "STATUS_OK_ip-service_"
 	// StatusFail not ok
-	StatusFail = "STATUS_FAIL_eduid_ladok_"
+	StatusFail = "STATUS_FAIL_ip-service_"
 )
 
 // Status type

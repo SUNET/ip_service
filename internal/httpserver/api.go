@@ -26,5 +26,6 @@ type Apiv1 interface {
 	JSON(ctx context.Context) (*model.RequestInformation, error)
 
 	LookUpIP(ctx context.Context, indata *apiv1.RequestLookUpIP) (*model.RequestInformation, error)
-	Status(ctx context.Context) (*model.Status, error)
+
+	Status(ctx context.Context) (string, error)
 }

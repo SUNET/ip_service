@@ -81,12 +81,7 @@ func (c *Client) LookUpIP(ctx context.Context, indata *RequestLookUpIP) (*model.
 	return c.formatJSON(ctx)
 }
 
-// Status return status for each ladok instance
-func (c *Client) Status(ctx context.Context) (*model.Status, error) {
-	//	manyStatus := model.ManyStatus{}
-	//	manyStatus = append(manyStatus, redis)
-	//	status := manyStatus.Check()
-	//
-	//	return status, nil
-	return nil, nil
+// Status return status
+func (c *Client) Status(ctx context.Context) (string, error) {
+	return model.StatusOK, nil
 }
