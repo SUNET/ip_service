@@ -62,23 +62,13 @@ func New(ctx context.Context, config *model.Cfg, api *apiv1.Client, logger *logg
 	})
 
 	s.regEndpoint(ctx, "GET", "/", s.endpointIP)
-	s.regEndpoint(ctx, "GET", "/ip/json", s.endpointIPJSON)
-
 	s.regEndpoint(ctx, "GET", "/city", s.endpointCity)
-	s.regEndpoint(ctx, "GET", "/city/json", s.endpointCityJSON)
-
 	s.regEndpoint(ctx, "GET", "/asn", s.endpointASN)
-	s.regEndpoint(ctx, "GET", "/asn/json", s.endpointASNJSON)
-
 	s.regEndpoint(ctx, "GET", "/country", s.endpointCountry)
-	s.regEndpoint(ctx, "GET", "/country/json", s.endpointCountryJSON)
-
 	s.regEndpoint(ctx, "GET", "/country-iso", s.endpointCountryISO)
-	s.regEndpoint(ctx, "GET", "/country-iso/json", s.endpointCountryISOJSON)
+	s.regEndpoint(ctx, "GET", "/json", s.endpointJSON)
 
 	s.regEndpoint(ctx, "GET", "/lookup/:ip", s.endpointLookUpIP)
-
-	s.regEndpoint(ctx, "GET", "/json", s.endpointJSON)
 
 	s.regEndpoint(ctx, "GET", "/health", s.endpointStatus)
 
@@ -102,11 +92,14 @@ func (s *Service) regEndpoint(ctx context.Context, method, path string, handler 
 			c.IndentedJSON(400, gin.H{"data": nil, "error": helpers.NewErrorFromError(err)})
 		}
 
-		switch res.(type) {
-		case string, uint:
-			c.Writer.WriteString(fmt.Sprintf("%v\n", res))
-		case *model.RequestInformation, map[string]interface{}:
+		switch c.Request.Header.Get("Content-Type") {
+		case "application/json":
 			c.IndentedJSON(200, res)
+		case "text/plain":
+			c.Writer.WriteString(fmt.Sprintf("%v", res))
+		case "":
+			c.Writer.WriteString(fmt.Sprintf("%v\n", res))
+
 		}
 	})
 }

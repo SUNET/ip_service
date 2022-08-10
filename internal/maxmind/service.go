@@ -2,9 +2,11 @@ package maxmind
 
 import (
 	"context"
+	"errors"
 	"ip_service/internal/store"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -75,13 +77,26 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, log *logger.
 }
 
 func (s *Service) openDB(ctx context.Context, dbType, url, filePath string) {
+	var missingDBFile bool
+
+	if _, err := os.Stat("db"); errors.Is(err, os.ErrNotExist) {
+		if err := os.Mkdir("db", os.ModePerm); err != nil {
+			s.log.Warn("Error", "create db folder")
+		}
+	}
+
+	if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
+		missingDBFile = true
+	}
+
 	s.log.Info("Run openDB for", "dbType", dbType)
 	haveNewVersion, err := s.isNewVersion(ctx, dbType, url)
 	if err != nil {
 		s.log.Warn("Error", "value", err)
 	}
-	if haveNewVersion {
-		if err := s.fetchDatabase(ctx, url, dbType); err != nil {
+
+	if haveNewVersion || missingDBFile {
+		if err := s.getLatestDB(ctx, url, dbType); err != nil {
 			s.log.Warn("Error", "value", err)
 		}
 
@@ -108,6 +123,10 @@ func (s *Service) openDB(ctx context.Context, dbType, url, filePath string) {
 		}
 		s.dbASN = db
 	}
+}
+
+func (s *Service) Status(ctx context.Context) string {
+	return ""
 }
 
 // Close closes maxmind service

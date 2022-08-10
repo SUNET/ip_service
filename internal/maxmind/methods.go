@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/oschwald/geoip2-golang"
+	"github.com/schollz/progressbar/v3"
 )
 
-func (s *Service) fetchDatabase(ctx context.Context, url, dbType string) error {
-	s.log.Info("Fetching a new version of maxmind database")
+// getLatestDB retrieve the latest version of database
+func (s *Service) getLatestDB(ctx context.Context, url, dbType string) error {
+	s.log.Info(fmt.Sprintf("Fetching %s database from maxmind", dbType))
 	resp, err := http.Get(fmt.Sprintf(url, s.cfg.MaxMind.LicenseKey))
 	if err != nil {
 		return err
@@ -29,7 +31,12 @@ func (s *Service) fetchDatabase(ctx context.Context, url, dbType string) error {
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, resp.Body)
+	bar := progressbar.DefaultBytes(
+		-1,
+		"downloading",
+	)
+
+	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
 	if err != nil {
 		return err
 	}
@@ -79,7 +86,7 @@ func (s *Service) unTAR(dbType string) error {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			fmt.Println("is a dir!")
+			fmt.Println("is a dir, needs to be a file")
 			if _, err := os.Stat(header.Name); err != nil {
 				if err := os.MkdirAll(target, 0775); err != nil {
 					return err
@@ -100,6 +107,7 @@ func (s *Service) unTAR(dbType string) error {
 	}
 }
 
+// getRemoteVersion retrieve the latest remote version.
 func (s *Service) getRemoteVersion(ctx context.Context, dbType, url string) (string, error) {
 	resp, err := http.Head(fmt.Sprintf(url, s.cfg.MaxMind.LicenseKey))
 	if err != nil {
@@ -124,14 +132,6 @@ func (s *Service) isNewVersion(ctx context.Context, dbType, url string) (bool, e
 	}
 
 	savedLastMod := s.kvStore.Get(ctx, dbType)
-
-	// if we can't find a saved timestamp, save it and return
-	if savedLastMod == "" {
-		if err := s.kvStore.Set(ctx, dbType, remoteLastMod); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
 
 	if remoteLastMod == savedLastMod {
 		s.log.Info("No new maxMind database version found")

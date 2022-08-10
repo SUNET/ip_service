@@ -17,6 +17,7 @@
         "oneof",
         "opentelemetry",
         "otel",
+        "progressbar",
         "Typeflag",
         "useragent"
     ]

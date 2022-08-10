@@ -5,7 +5,7 @@ import (
 )
 
 // Set sets key value in store
-func (s *KV) Set(ctx context.Context, k,v string) error {
+func (s *KV) Set(ctx context.Context, k, v string) error {
 	return s.File.WriteString(k, v)
 }
 
