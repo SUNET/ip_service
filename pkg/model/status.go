@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 var (
 	// StatusOK ok
@@ -9,30 +11,35 @@ var (
 	StatusFail = "STATUS_FAIL_ip-service_"
 )
 
-// Status type
-type Status struct {
-	Name       string    `json:"name,omitempty"`
-	SchoolName string    `json:"school_name,omitempty"`
-	Healthy    bool      `json:"healthy,omitempty"`
-	Status     string    `json:"status,omitempty"`
-	Message    string    `json:"message,omitempty"`
-	Timestamp  time.Time `json:"timestamp,omitempty"`
+// StatusService type
+type StatusService struct {
+	ServiceName string        `json:"service_name,omitempty"`
+	Message     string        `json:"message,omitempty"`
+	Healthy     bool          `json:"healthy,omitempty"`
+	Status      string        `json:"status,omitempty"`
+	Timestamp   time.Time     `json:"timestamp,omitempty"`
+	Interval    time.Duration `json:"-"`
 }
 
-// ManyStatus contains many status objects
-type ManyStatus []*Status
+type AllStatus []*StatusService
 
 // Check checks the status of each status, return the first that does not pass.
-func (s ManyStatus) Check() *Status {
-	for _, status := range s {
-		if s == nil {
-			continue
+func (s AllStatus) Check() *StatusService {
+	if s == nil {
+		return &StatusService{
+			Healthy:   false,
+			Status:    StatusFail,
+			Timestamp: time.Now(),
 		}
+	}
+
+	for _, status := range s {
 		if !status.Healthy {
+			status.Status = StatusFail
 			return status
 		}
 	}
-	status := &Status{
+	status := &StatusService{
 		Healthy:   true,
 		Status:    StatusOK,
 		Timestamp: time.Now(),

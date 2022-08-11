@@ -9,7 +9,7 @@ type (
 	ContextUserAgent string
 )
 
-type RequestInformation struct {
+type ReplyIPInformation struct {
 	IP              string       `json:"ip"`
 	IPDecimal       string       `json:"ip_decimal"`
 	ASN             uint         `json:"asn"`
@@ -27,4 +27,18 @@ type RequestInformation struct {
 	Hostname        string       `json:"hostname"`
 	UserAgent       ua.UserAgent `json:"user_agent"`
 	Continent       string       `json:"continent"`
+}
+
+type Maxmind struct {
+	ASN  MaxmindInformation `json:"asn"`
+	City MaxmindInformation `json:"city"`
+}
+
+type MaxmindInformation struct {
+	Version string `json:"version"`
+}
+
+type ReplyInfo struct {
+	MaxMind Maxmind `json:"maxmind"`
+	Started string  `json:"started"`
 }

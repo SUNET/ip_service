@@ -68,7 +68,7 @@ func (c *Client) CountryISOJSON(ctx context.Context) (map[string]interface{}, er
 }
 
 // SchoolInfo return a list of schoolNames
-func (c *Client) JSON(ctx context.Context) (*model.RequestInformation, error) {
+func (c *Client) JSON(ctx context.Context) (*model.ReplyIPInformation, error) {
 	return c.formatJSON(ctx)
 }
 
@@ -76,12 +76,31 @@ type RequestLookUpIP struct {
 	IP string `uri:"ip" validate:"required"`
 }
 
-func (c *Client) LookUpIP(ctx context.Context, indata *RequestLookUpIP) (*model.RequestInformation, error) {
+func (c *Client) LookUpIP(ctx context.Context, indata *RequestLookUpIP) (*model.ReplyIPInformation, error) {
 	ctx = context.WithValue(ctx, "ip", indata.IP)
 	return c.formatJSON(ctx)
 }
 
+func (c *Client) Info(ctx context.Context) (*model.ReplyInfo, error) {
+	replyInfo := &model.ReplyInfo{
+		MaxMind: model.Maxmind{
+			ASN:  model.MaxmindInformation{Version: c.store.KV.Get(ctx, "ASN")},
+			City: model.MaxmindInformation{Version: c.store.KV.Get(ctx, "City")},
+		},
+		Started: c.store.KV.Get(ctx, "started"),
+	}
+
+	return replyInfo, nil
+}
+
 // Status return status
-func (c *Client) Status(ctx context.Context) (string, error) {
-	return model.StatusOK, nil
+func (c *Client) Status(ctx context.Context) (*model.StatusService, error) {
+	status := model.AllStatus{
+		c.max.Status(ctx),
+		c.store.Status(ctx),
+	}
+
+	status.Check()
+
+	return status.Check(), nil
 }

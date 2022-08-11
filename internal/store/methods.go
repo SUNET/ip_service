@@ -13,3 +13,7 @@ func (s *KV) Set(ctx context.Context, k, v string) error {
 func (s *KV) Get(ctx context.Context, k string) string {
 	return s.File.ReadString(k)
 }
+
+func (s *KV) Del(ctx context.Context, k string) error {
+	return s.File.Erase(k)
+}

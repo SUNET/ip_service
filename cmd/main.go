@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type service interface {
@@ -37,14 +38,16 @@ func main() {
 	log = logger.New("ip_service", cfg.Production)
 
 	store, err := store.New(ctx, cfg, log.New("store"))
+	services["store"] = store
 	if err != nil {
 		panic(err)
 	}
 	max, err := maxmind.New(ctx, cfg, store, log.New("maxmind"))
+	services["maxmind"] = max
 	if err != nil {
 		panic(err)
 	}
-	apiv1, err := apiv1.New(ctx, max, cfg, log.New("apiv1"))
+	apiv1, err := apiv1.New(ctx, max, store, cfg, log.New("apiv1"))
 	if err != nil {
 		panic(err)
 	}
@@ -53,6 +56,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// add timestamp in storage which time the service was started
+	store.KV.Set(ctx, "started", time.Now().String())
 
 	// Handle sigterm and await termChan signal
 	termChan := make(chan os.Signal, 1)

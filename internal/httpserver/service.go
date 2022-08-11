@@ -70,6 +70,8 @@ func New(ctx context.Context, config *model.Cfg, api *apiv1.Client, logger *logg
 
 	s.regEndpoint(ctx, "GET", "/lookup/:ip", s.endpointLookUpIP)
 
+	s.regEndpoint(ctx, "GET", "/info", s.endpointInfo)
+
 	s.regEndpoint(ctx, "GET", "/health", s.endpointStatus)
 
 	// Run http server
@@ -92,12 +94,12 @@ func (s *Service) regEndpoint(ctx context.Context, method, path string, handler 
 			c.IndentedJSON(400, gin.H{"data": nil, "error": helpers.NewErrorFromError(err)})
 		}
 
-		switch c.Request.Header.Get("Content-Type") {
+		switch c.Request.Header.Get("Accept") {
 		case "application/json":
 			c.IndentedJSON(200, res)
 		case "text/plain":
 			c.Writer.WriteString(fmt.Sprintf("%v", res))
-		case "":
+		case "*/*":
 			c.Writer.WriteString(fmt.Sprintf("%v\n", res))
 
 		}

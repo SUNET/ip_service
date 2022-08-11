@@ -7,14 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func helperGetHeader(c *gin.Context) string {
-	return c.Request.Header.Get("Content-Type")
-}
-
 func (s *Service) endpointIP(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch helperGetHeader(c) {
+	switch c.Request.Header.Get("Accept") {
 	case "application/json":
 		reply, err := s.apiv1.IPJSON(ctx)
 		if err != nil {
@@ -22,7 +18,7 @@ func (s *Service) endpointIP(ctx context.Context, c *gin.Context) (interface{}, 
 		}
 		return reply, nil
 
-	case "text/plain", "":
+	case "text/plain", "*/*":
 		reply, err := s.apiv1.IP(ctx)
 		if err != nil {
 			return nil, err
@@ -36,14 +32,14 @@ func (s *Service) endpointIP(ctx context.Context, c *gin.Context) (interface{}, 
 func (s *Service) endpointCity(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch helperGetHeader(c) {
+	switch c.Request.Header.Get("Accept") {
 	case "application/json":
 		reply, err := s.apiv1.CityJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	case "text/plain", "":
+	case "text/plain", "*/*":
 		reply, err := s.apiv1.City(ctx)
 		if err != nil {
 			return nil, err
@@ -57,14 +53,14 @@ func (s *Service) endpointCity(ctx context.Context, c *gin.Context) (interface{}
 func (s *Service) endpointCountry(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch helperGetHeader(c) {
+	switch c.Request.Header.Get("Accept") {
 	case "application/json":
 		reply, err := s.apiv1.CountryJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	case "text/plain", "":
+	case "text/plain", "*/*":
 		reply, err := s.apiv1.Country(ctx)
 		if err != nil {
 			return nil, err
@@ -78,14 +74,14 @@ func (s *Service) endpointCountry(ctx context.Context, c *gin.Context) (interfac
 func (s *Service) endpointCountryISO(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch helperGetHeader(c) {
+	switch c.Request.Header.Get("Accept") {
 	case "application/json":
 		reply, err := s.apiv1.CountryISOJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	case "text/plain", "":
+	case "text/plain", "*/*":
 		reply, err := s.apiv1.CountryISO(ctx)
 		if err != nil {
 			return nil, err
@@ -99,14 +95,14 @@ func (s *Service) endpointCountryISO(ctx context.Context, c *gin.Context) (inter
 func (s *Service) endpointASN(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch helperGetHeader(c) {
+	switch c.Request.Header.Get("Accept") {
 	case "application/json":
 		reply, err := s.apiv1.ASNJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	case "text/plain", "":
+	case "text/plain", "*/*":
 		reply, err := s.apiv1.ASN(ctx)
 		if err != nil {
 			return nil, err
@@ -137,6 +133,14 @@ func (s *Service) endpointLookUpIP(ctx context.Context, c *gin.Context) (interfa
 	ctx = context.WithValue(ctx, "ua", c.Request.UserAgent())
 
 	reply, err := s.apiv1.LookUpIP(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return reply, nil
+}
+
+func (s *Service) endpointInfo(ctx context.Context, c *gin.Context) (interface{}, error) {
+	reply, err := s.apiv1.Info(ctx)
 	if err != nil {
 		return nil, err
 	}

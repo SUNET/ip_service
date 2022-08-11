@@ -3,9 +3,11 @@ package maxmind
 import (
 	"context"
 	"errors"
+	"fmt"
 	"ip_service/internal/store"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -125,12 +127,46 @@ func (s *Service) openDB(ctx context.Context, dbType, url, filePath string) {
 	}
 }
 
-func (s *Service) Status(ctx context.Context) string {
-	return ""
+var (
+	nextRun    time.Time
+	lastStatus *model.StatusService
+)
+
+func (s *Service) Status(ctx context.Context) *model.StatusService {
+	if time.Now().After(nextRun) {
+		status := &model.StatusService{
+			ServiceName: "maxmind",
+			Timestamp:   time.Now(),
+			Interval:    10 * time.Second,
+		}
+
+		for _, testIP := range []string{"95.142.107.181", "110.50.243.6", "69.162.81.155"} {
+			_, err := s.dbCity.Country(net.ParseIP(testIP))
+			if err != nil {
+				status.Message = fmt.Sprintf("dbCity country: %v", err)
+				return status
+			}
+
+			_, err = s.dbASN.ASN(net.ParseIP(testIP))
+			if err != nil {
+				status.Message = fmt.Sprintf("dbASN ASN %v", err)
+				return status
+			}
+		}
+
+		status.Healthy = true
+		nextRun = time.Now().Add(status.Interval)
+		lastStatus = status
+
+		return status
+	}
+
+	return lastStatus
 }
 
 // Close closes maxmind service
 func (s *Service) Close(ctx context.Context) error {
+	s.log.Info("Quit")
 	s.quitChan <- true
 	ctx.Done()
 	return nil

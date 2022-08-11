@@ -23,9 +23,11 @@ type Apiv1 interface {
 	ASN(ctx context.Context) (uint, error)
 	ASNJSON(ctx context.Context) (map[string]interface{}, error)
 
-	JSON(ctx context.Context) (*model.RequestInformation, error)
+	JSON(ctx context.Context) (*model.ReplyIPInformation, error)
 
-	LookUpIP(ctx context.Context, indata *apiv1.RequestLookUpIP) (*model.RequestInformation, error)
+	LookUpIP(ctx context.Context, indata *apiv1.RequestLookUpIP) (*model.ReplyIPInformation, error)
 
-	Status(ctx context.Context) (string, error)
+	Info(ctx context.Context) (*model.ReplyInfo, error)
+
+	Status(ctx context.Context) (*model.StatusService, error)
 }

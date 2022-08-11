@@ -134,7 +134,7 @@ func (s *Service) isNewVersion(ctx context.Context, dbType, url string) (bool, e
 	savedLastMod := s.kvStore.Get(ctx, dbType)
 
 	if remoteLastMod == savedLastMod {
-		s.log.Info("No new maxMind database version found")
+		s.log.Info(fmt.Sprintf("No new %s maxmind database version found", dbType))
 		return false, nil
 	}
 
