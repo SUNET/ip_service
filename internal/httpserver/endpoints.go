@@ -2,126 +2,167 @@ package httpserver
 
 import (
 	"context"
+	"fmt"
 	"ip_service/internal/apiv1"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang/gddo/httputil"
 )
 
-func (s *Service) endpointIP(ctx context.Context, c *gin.Context) (interface{}, error) {
+func (s *Service) negotiateContentType(ctx context.Context, c *gin.Context) string {
+	return httputil.NegotiateContentType(
+		c.Request,
+		[]string{"*/*", gin.MIMEPlain, gin.MIMEJSON, gin.MIMEHTML},
+		"*/*",
+	)
+}
+
+func (s *Service) endpointIndex(ctx context.Context, c *gin.Context) (interface{}, error) {
+	ctx = context.WithValue(ctx, "ua", c.Request.UserAgent())
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch c.Request.Header.Get("Accept") {
-	case "application/json":
+	switch s.negotiateContentType(ctx, c) {
+	case gin.MIMEPlain, "*/*":
+		fmt.Println("plain?")
+		reply, err := s.apiv1.IPText(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return reply, nil
+	case gin.MIMEJSON:
+		fmt.Println("json")
 		reply, err := s.apiv1.IPJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-
-	case "text/plain", "*/*":
-		reply, err := s.apiv1.IP(ctx)
+	case gin.MIMEHTML:
+		fmt.Println("html")
+		fmt.Println("UserAgent:", c.Request.UserAgent())
+		reply, err := s.apiv1.Index(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	}
 
+	}
 	return nil, nil
 }
 
 func (s *Service) endpointCity(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch c.Request.Header.Get("Accept") {
-	case "application/json":
+	switch s.negotiateContentType(ctx, c) {
+	case gin.MIMEJSON, gin.MIMEHTML:
 		reply, err := s.apiv1.CityJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	case "text/plain", "*/*":
-		reply, err := s.apiv1.City(ctx)
+	default:
+		reply, err := s.apiv1.CityText(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
 	}
-
-	return nil, nil
 }
 
 func (s *Service) endpointCountry(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch c.Request.Header.Get("Accept") {
-	case "application/json":
+	switch s.negotiateContentType(ctx, c) {
+	case gin.MIMEJSON, gin.MIMEHTML:
 		reply, err := s.apiv1.CountryJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	case "text/plain", "*/*":
-		reply, err := s.apiv1.Country(ctx)
+	default:
+		reply, err := s.apiv1.CountryText(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
 	}
-
-	return nil, nil
 }
 
 func (s *Service) endpointCountryISO(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch c.Request.Header.Get("Accept") {
-	case "application/json":
+	switch s.negotiateContentType(ctx, c) {
+	case gin.MIMEJSON, gin.MIMEHTML:
 		reply, err := s.apiv1.CountryISOJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	case "text/plain", "*/*":
-		reply, err := s.apiv1.CountryISO(ctx)
+	default:
+		reply, err := s.apiv1.CountryISOText(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
 	}
-
-	return nil, nil
 }
 
 func (s *Service) endpointASN(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	switch c.Request.Header.Get("Accept") {
-	case "application/json":
+	switch s.negotiateContentType(ctx, c) {
+	case gin.MIMEJSON, gin.MIMEHTML:
 		reply, err := s.apiv1.ASNJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
-	case "text/plain", "*/*":
-		reply, err := s.apiv1.ASN(ctx)
+	default:
+		reply, err := s.apiv1.ASNText(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
 	}
-
-	return nil, nil
 }
 
-func (s *Service) endpointJSON(ctx context.Context, c *gin.Context) (interface{}, error) {
+func (s *Service) endpointCoordinates(ctx context.Context, c *gin.Context) (interface{}, error) {
+	ctx = context.WithValue(ctx, "ip", c.ClientIP())
+
+	switch s.negotiateContentType(ctx, c) {
+	case gin.MIMEJSON, gin.MIMEHTML:
+		reply, err := s.apiv1.CoordinatesJSON(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return reply, nil
+
+	default:
+		reply, err := s.apiv1.CoordinatesText(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return reply, nil
+	}
+}
+
+func (s *Service) endpointAll(ctx context.Context, c *gin.Context) (interface{}, error) {
 	ctx = context.WithValue(ctx, "ua", c.Request.UserAgent())
 	ctx = context.WithValue(ctx, "ip", c.ClientIP())
 
-	reply, err := s.apiv1.JSON(ctx)
+	reply, err := s.apiv1.AllJSON(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return reply, nil
+	//switch c.Request.Header.Get("Accept") {
+	//case gin.MIMEJSON, model.WebBrowserAccept, gin.MIMEHTML:
+	//default:
+	//	reply, err := s.apiv1.AllText(ctx)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	return reply, nil
+	//}
 }
 
 func (s *Service) endpointLookUpIP(ctx context.Context, c *gin.Context) (interface{}, error) {

@@ -20,8 +20,8 @@ type Service struct {
 	cfg      *model.Cfg
 	log      *logger.Logger
 	dbFiles  map[string]dbObject
-	dbCity   *geoip2.Reader
-	dbASN    *geoip2.Reader
+	DBCity   *geoip2.Reader
+	DBASN    *geoip2.Reader
 	kvStore  kvStore
 	quitChan chan bool
 }
@@ -117,13 +117,13 @@ func (s *Service) openDB(ctx context.Context, dbType, url, filePath string) {
 		if err != nil {
 			s.log.Warn("Error", "value", err)
 		}
-		s.dbCity = db
+		s.DBCity = db
 	case "ASN":
 		db, err := geoip2.Open(filePath)
 		if err != nil {
 			s.log.Warn("Error", "value", err)
 		}
-		s.dbASN = db
+		s.DBASN = db
 	}
 }
 
@@ -141,13 +141,13 @@ func (s *Service) Status(ctx context.Context) *model.StatusService {
 		}
 
 		for _, testIP := range []string{"95.142.107.181", "110.50.243.6", "69.162.81.155"} {
-			_, err := s.dbCity.Country(net.ParseIP(testIP))
+			_, err := s.DBCity.Country(net.ParseIP(testIP))
 			if err != nil {
 				status.Message = fmt.Sprintf("dbCity country: %v", err)
 				return status
 			}
 
-			_, err = s.dbASN.ASN(net.ParseIP(testIP))
+			_, err = s.DBASN.ASN(net.ParseIP(testIP))
 			if err != nil {
 				status.Message = fmt.Sprintf("dbASN ASN %v", err)
 				return status

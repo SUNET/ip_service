@@ -8,22 +8,27 @@ import (
 
 // Apiv1 interface
 type Apiv1 interface {
-	IP(ctx context.Context) (string, error)
+	Index(ctx context.Context) (*model.ReplyIPInformation, error)
+
+	IPText(ctx context.Context) (string, error)
 	IPJSON(ctx context.Context) (map[string]interface{}, error)
 
-	City(ctx context.Context) (string, error)
+	CityText(ctx context.Context) (string, error)
 	CityJSON(ctx context.Context) (map[string]interface{}, error)
 
-	Country(ctx context.Context) (string, error)
+	CountryText(ctx context.Context) (string, error)
 	CountryJSON(ctx context.Context) (map[string]interface{}, error)
 
-	CountryISO(ctx context.Context) (string, error)
+	CountryISOText(ctx context.Context) (string, error)
 	CountryISOJSON(ctx context.Context) (map[string]interface{}, error)
 
-	ASN(ctx context.Context) (uint, error)
+	ASNText(ctx context.Context) (uint, error)
 	ASNJSON(ctx context.Context) (map[string]interface{}, error)
 
-	JSON(ctx context.Context) (*model.ReplyIPInformation, error)
+	CoordinatesJSON(ctx context.Context) (map[string]interface{}, error)
+	CoordinatesText(ctx context.Context) ([]float64, error)
+
+	AllJSON(ctx context.Context) (*model.ReplyIPInformation, error)
 
 	LookUpIP(ctx context.Context, indata *apiv1.RequestLookUpIP) (*model.ReplyIPInformation, error)
 

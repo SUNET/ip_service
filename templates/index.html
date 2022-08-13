@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="assets/css/index.css">
+    <title>ip.sunet.se</title>
+</head>
+
+<body>
+    <div class="content">
+        <div class="ip_info_box">
+            <h1>What's my IP?</h1>
+            <p><code class="ip-box">{{ .data.IP }}</code></p>
+        </div>
+        <div class="full_ip_info">
+            A bit more information about your request...
+            <table>
+                <tr>
+                    <td class="cell_data_key">IP address</td>
+                    <td>{{ .data.IP }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">IP address <br>(decimal)</td>
+                    <td>{{ .data.IPDecimal }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">ASN</td>
+                    <td>{{ .data.ASN }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">ASN organization</td>
+                    <td>{{ .data.ASNOrganization }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">City</td>
+                    <td>{{ .data.City }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Country</td>
+                    <td>{{ .data.Country }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Country <br>(ISO)</td>
+                    <td>{{ .data.CountryISO }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Is in EU</td>
+                    <td>{{ .data.IsEU }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Region</td>
+                    <td>{{ .data.Region }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Region Code</td>
+                    <td>{{ .data.RegionCode }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Postal Code</td>
+                    <td>{{ .data.PostalCode }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Latitude</td>
+                    <td>{{ .data.Latitude }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Longitude</td>
+                    <td>{{ .data.Longitude }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Timezone</td>
+                    <td>{{ .data.Timezone }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Hostname</td>
+                    <td>{{ .data.Hostname }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Continent</td>
+                    <td>{{ .data.Continent }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">Device type</td>
+                    {{ if .data.UserAgent.Mobile }}
+                    <td>Mobile</td>
+                    {{ end }}
+
+                    {{ if .data.UserAgent.Tablet }}
+                    <td>Table</td>
+                    {{ end }}
+
+                    {{ if .data.UserAgent.Desktop }}
+                    <td>Desktop</td>
+                    {{ end }}
+                </tr>
+                <tr>
+                    <td class="cell_data_key">User Agent <br> Bot</td>
+                    <td>{{ .data.UserAgent.Bot }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">User Agent <br> Browser Engine</td>
+                    <td>{{ .data.UserAgent.Name }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">User Agent <br> Browser Engine Version</td>
+                    <td>{{ .data.UserAgent.Version }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">User Agent <br> OS</td>
+                    <td>{{ .data.UserAgent.OS }}</td>
+                </tr>
+                <tr>
+                    <td class="cell_data_key">User Agent <br> OS Arch</td>
+                    <td>{{ .data.UserAgent.OSVersion }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</body>
+
+</html>

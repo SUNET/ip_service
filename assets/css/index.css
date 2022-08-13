@@ -1,0 +1,22 @@
+body {
+    background-color: white;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border: 1px solid rgb(100, 100, 100);
+}
+
+.cell_data_key {
+    background-color: rgb(188, 187, 187);
+}
+
+.ip-box {
+    box-sizing: content-box;
+    border: 1px solid #cbcbcb;
+    background-color: rgb(192, 192, 192);
+}

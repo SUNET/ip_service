@@ -51,6 +51,9 @@ func New(ctx context.Context, config *model.Cfg, api *apiv1.Client, logger *logg
 	s.server.WriteTimeout = time.Second * 30
 	s.server.IdleTimeout = time.Second * 90
 
+	s.gin.LoadHTMLGlob("templates/*.html")
+	s.gin.Static("/assets", "./assets")
+
 	// Middlewares
 	s.gin.Use(s.middlewareDuration(ctx))
 	s.gin.Use(s.middlewareLogger(ctx))
@@ -61,12 +64,13 @@ func New(ctx context.Context, config *model.Cfg, api *apiv1.Client, logger *logg
 		c.JSON(status, gin.H{"error": p, "data": nil})
 	})
 
-	s.regEndpoint(ctx, "GET", "/", s.endpointIP)
+	s.regEndpoint(ctx, "GET", "/", s.endpointIndex)
 	s.regEndpoint(ctx, "GET", "/city", s.endpointCity)
 	s.regEndpoint(ctx, "GET", "/asn", s.endpointASN)
 	s.regEndpoint(ctx, "GET", "/country", s.endpointCountry)
 	s.regEndpoint(ctx, "GET", "/country-iso", s.endpointCountryISO)
-	s.regEndpoint(ctx, "GET", "/json", s.endpointJSON)
+	s.regEndpoint(ctx, "GET", "/coordinates", s.endpointCoordinates)
+	s.regEndpoint(ctx, "GET", "/all", s.endpointAll)
 
 	s.regEndpoint(ctx, "GET", "/lookup/:ip", s.endpointLookUpIP)
 
@@ -94,14 +98,24 @@ func (s *Service) regEndpoint(ctx context.Context, method, path string, handler 
 			c.IndentedJSON(400, gin.H{"data": nil, "error": helpers.NewErrorFromError(err)})
 		}
 
-		switch c.Request.Header.Get("Accept") {
+		switch s.negotiateContentType(ctx, c) {
+		case "text/html":
+			switch res.(type) {
+			case *model.ReplyIPInformation:
+				//c.HTML(http.StatusOK, "index.html", res.(*model.ReplyIPInformation))
+				c.HTML(http.StatusOK, "index.html", gin.H{
+					"data": res.(*model.ReplyIPInformation),
+					//"data": "min smarriga data",
+				})
+			}
 		case "application/json":
 			c.IndentedJSON(200, res)
 		case "text/plain":
 			c.Writer.WriteString(fmt.Sprintf("%v", res))
 		case "*/*":
 			c.Writer.WriteString(fmt.Sprintf("%v\n", res))
-
+		default:
+			fmt.Println("default")
 		}
 	})
 }

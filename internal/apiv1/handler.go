@@ -5,8 +5,12 @@ import (
 	"ip_service/pkg/model"
 )
 
-// IP handler
-func (c *Client) IP(ctx context.Context) (string, error) {
+func (c *Client) Index(ctx context.Context) (*model.ReplyIPInformation, error) {
+	return c.formatAllJSON(ctx)
+}
+
+// IPText handler
+func (c *Client) IPText(ctx context.Context) (string, error) {
 	return c.getIP(ctx), nil
 }
 func (c *Client) IPJSON(ctx context.Context) (map[string]interface{}, error) {
@@ -15,7 +19,7 @@ func (c *Client) IPJSON(ctx context.Context) (map[string]interface{}, error) {
 	}, nil
 }
 
-func (c *Client) City(ctx context.Context) (string, error) {
+func (c *Client) CityText(ctx context.Context) (string, error) {
 	return c.city(ctx)
 }
 func (c *Client) CityJSON(ctx context.Context) (map[string]interface{}, error) {
@@ -28,7 +32,7 @@ func (c *Client) CityJSON(ctx context.Context) (map[string]interface{}, error) {
 	}, nil
 }
 
-func (c *Client) Country(ctx context.Context) (string, error) {
+func (c *Client) CountryText(ctx context.Context) (string, error) {
 	return c.country(ctx)
 }
 func (c *Client) CountryJSON(ctx context.Context) (map[string]interface{}, error) {
@@ -41,7 +45,7 @@ func (c *Client) CountryJSON(ctx context.Context) (map[string]interface{}, error
 	}, nil
 }
 
-func (c *Client) ASN(ctx context.Context) (uint, error) {
+func (c *Client) ASNText(ctx context.Context) (uint, error) {
 	return c.asn(ctx)
 }
 func (c *Client) ASNJSON(ctx context.Context) (map[string]interface{}, error) {
@@ -54,7 +58,7 @@ func (c *Client) ASNJSON(ctx context.Context) (map[string]interface{}, error) {
 	}, nil
 }
 
-func (c *Client) CountryISO(ctx context.Context) (string, error) {
+func (c *Client) CountryISOText(ctx context.Context) (string, error) {
 	return c.countryISO(ctx)
 }
 func (c *Client) CountryISOJSON(ctx context.Context) (map[string]interface{}, error) {
@@ -67,9 +71,26 @@ func (c *Client) CountryISOJSON(ctx context.Context) (map[string]interface{}, er
 	}, nil
 }
 
-// SchoolInfo return a list of schoolNames
-func (c *Client) JSON(ctx context.Context) (*model.ReplyIPInformation, error) {
-	return c.formatJSON(ctx)
+func (c *Client) CoordinatesText(ctx context.Context) ([]float64, error) {
+	return c.coordinates(ctx)
+}
+func (c *Client) CoordinatesJSON(ctx context.Context) (map[string]interface{}, error) {
+	coordinates, err := c.coordinates(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"coordinates": map[string]interface{}{
+			"lat":  coordinates[0],
+			"long": coordinates[1],
+		},
+	}, nil
+
+}
+
+func (c *Client) AllJSON(ctx context.Context) (*model.ReplyIPInformation, error) {
+	return c.formatAllJSON(ctx)
 }
 
 type RequestLookUpIP struct {
@@ -78,7 +99,7 @@ type RequestLookUpIP struct {
 
 func (c *Client) LookUpIP(ctx context.Context, indata *RequestLookUpIP) (*model.ReplyIPInformation, error) {
 	ctx = context.WithValue(ctx, "ip", indata.IP)
-	return c.formatJSON(ctx)
+	return c.formatAllJSON(ctx)
 }
 
 func (c *Client) Info(ctx context.Context) (*model.ReplyInfo, error) {

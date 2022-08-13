@@ -145,20 +145,20 @@ func (s *Service) isNewVersion(ctx context.Context, dbType, url string) (bool, e
 
 // City return a city object from ip
 func (s *Service) City(ip net.IP) (*geoip2.City, error) {
-	return s.dbCity.City(ip)
+	return s.DBCity.City(ip)
 }
 
 // ASN return information about the ASN
 func (s *Service) ASN(ip net.IP) (*geoip2.ASN, error) {
-	return s.dbASN.ASN(ip)
+	return s.DBASN.ASN(ip)
 }
 
 // ISP return information about the ISP
 func (s *Service) ISP(ip net.IP) (*geoip2.ISP, error) {
-	return s.dbCity.ISP(ip)
+	return s.DBCity.ISP(ip)
 }
 
 // AnonymousIP return information about any anonymous services
 func (s *Service) AnonymousIP(ip net.IP) (*geoip2.AnonymousIP, error) {
-	return s.dbCity.AnonymousIP(ip)
+	return s.DBCity.AnonymousIP(ip)
 }

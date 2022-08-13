@@ -114,7 +114,7 @@ func (c *Client) continent(ctx context.Context) (string, error) {
 	return m.Continent.Names["en"], nil
 }
 
-func (c *Client) formatJSON(ctx context.Context) (*model.ReplyIPInformation, error) {
+func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, error) {
 	ipDecimal, err := c.IPDecimal(ctx)
 	if err != nil {
 		return nil, err

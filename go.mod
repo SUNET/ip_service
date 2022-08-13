@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-playground/validator/v10 v10.11.0
+	github.com/golang/gddo v0.0.0-20210115222349-20d68f94ee1f
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/masv3971/goladok3 v0.0.76
 	github.com/mileusna/useragent v1.0.2
