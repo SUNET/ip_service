@@ -102,20 +102,16 @@ func (s *Service) regEndpoint(ctx context.Context, method, path string, handler 
 		case "text/html":
 			switch res.(type) {
 			case *model.ReplyIPInformation:
-				//c.HTML(http.StatusOK, "index.html", res.(*model.ReplyIPInformation))
 				c.HTML(http.StatusOK, "index.html", gin.H{
 					"data": res.(*model.ReplyIPInformation),
-					//"data": "min smarriga data",
 				})
 			}
 		case "application/json":
 			c.IndentedJSON(200, res)
 		case "text/plain":
 			c.Writer.WriteString(fmt.Sprintf("%v", res))
-		case "*/*":
-			c.Writer.WriteString(fmt.Sprintf("%v\n", res))
 		default:
-			fmt.Println("default")
+			c.Writer.WriteString(fmt.Sprintf("%v\n", res))
 		}
 	})
 }

@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"context"
-	"fmt"
 	"ip_service/internal/apiv1"
 
 	"github.com/gin-gonic/gin"
@@ -23,22 +22,18 @@ func (s *Service) endpointIndex(ctx context.Context, c *gin.Context) (interface{
 
 	switch s.negotiateContentType(ctx, c) {
 	case gin.MIMEPlain, "*/*":
-		fmt.Println("plain?")
 		reply, err := s.apiv1.IPText(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
 	case gin.MIMEJSON:
-		fmt.Println("json")
 		reply, err := s.apiv1.IPJSON(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return reply, nil
 	case gin.MIMEHTML:
-		fmt.Println("html")
-		fmt.Println("UserAgent:", c.Request.UserAgent())
 		reply, err := s.apiv1.Index(ctx)
 		if err != nil {
 			return nil, err
