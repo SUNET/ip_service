@@ -10,108 +10,108 @@
     <div class="content">
         <div class="ip_info_box">
             <h1>What's my IP?</h1>
-            <p><code class="ip-box">{{ .data.IP }}</code></p>
+            <p><code class="ip-box">{{ .IP }}</code></p>
         </div>
         <div class="full_ip_info">
             A bit more information about your request...
             <table>
                 <tr>
                     <td class="cell_data_key">IP address</td>
-                    <td>{{ .data.IP }}</td>
+                    <td>{{ .IP }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">IP address <br>(decimal)</td>
-                    <td>{{ .data.IPDecimal }}</td>
+                    <td>{{ .IPDecimal }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">ASN</td>
-                    <td>{{ .data.ASN }}</td>
+                    <td>{{ .ASN }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">ASN organization</td>
-                    <td>{{ .data.ASNOrganization }}</td>
+                    <td>{{ .ASNOrganization }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">City</td>
-                    <td>{{ .data.City }}</td>
+                    <td>{{ .City }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Country</td>
-                    <td>{{ .data.Country }}</td>
+                    <td>{{ .Country }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Country <br>(ISO)</td>
-                    <td>{{ .data.CountryISO }}</td>
+                    <td>{{ .CountryISO }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Is in EU</td>
-                    <td>{{ .data.IsEU }}</td>
+                    <td>{{ .IsEU }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Region</td>
-                    <td>{{ .data.Region }}</td>
+                    <td>{{ .Region }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Region Code</td>
-                    <td>{{ .data.RegionCode }}</td>
+                    <td>{{ .RegionCode }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Postal Code</td>
-                    <td>{{ .data.PostalCode }}</td>
+                    <td>{{ .PostalCode }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Latitude</td>
-                    <td>{{ .data.Latitude }}</td>
+                    <td>{{ .Latitude }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Longitude</td>
-                    <td>{{ .data.Longitude }}</td>
+                    <td>{{ .Longitude }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Timezone</td>
-                    <td>{{ .data.Timezone }}</td>
+                    <td>{{ .Timezone }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Hostname</td>
-                    <td>{{ .data.Hostname }}</td>
+                    <td>{{ .Hostname }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Continent</td>
-                    <td>{{ .data.Continent }}</td>
+                    <td>{{ .Continent }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">Device type</td>
-                    {{ if .data.UserAgent.Mobile }}
+                    {{ if .UserAgent.Mobile }}
                     <td>Mobile</td>
                     {{ end }}
 
-                    {{ if .data.UserAgent.Tablet }}
+                    {{ if .UserAgent.Tablet }}
                     <td>Table</td>
                     {{ end }}
 
-                    {{ if .data.UserAgent.Desktop }}
+                    {{ if .UserAgent.Desktop }}
                     <td>Desktop</td>
                     {{ end }}
                 </tr>
                 <tr>
                     <td class="cell_data_key">User Agent <br> Bot</td>
-                    <td>{{ .data.UserAgent.Bot }}</td>
+                    <td>{{ .UserAgent.Bot }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">User Agent <br> Browser Engine</td>
-                    <td>{{ .data.UserAgent.Name }}</td>
+                    <td>{{ .UserAgent.Name }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">User Agent <br> Browser Engine Version</td>
-                    <td>{{ .data.UserAgent.Version }}</td>
+                    <td>{{ .UserAgent.Version }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">User Agent <br> OS</td>
-                    <td>{{ .data.UserAgent.OS }}</td>
+                    <td>{{ .UserAgent.OS }}</td>
                 </tr>
                 <tr>
                     <td class="cell_data_key">User Agent <br> OS Arch</td>
-                    <td>{{ .data.UserAgent.OSVersion }}</td>
+                    <td>{{ .UserAgent.OSVersion }}</td>
                 </tr>
             </table>
         </div>
