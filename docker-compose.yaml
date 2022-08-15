@@ -6,11 +6,13 @@ services:
     image: docker.sunet.se/ip_service:latest
     networks:
       ip_service_net:
-        ipv4_address: 172.16.10.250
+        ipv4_address: 172.16.20.250
     ports:
       - 8080:8080
     volumes:
       - ./dev-config-docker.yaml:/tmp/config.yaml:ro
+      - ./templates/:/templates:ro
+      - ./assets/:/assets:ro
       - ip_servicedata:/db
     environment:
       - CONFIG_YAML=/tmp/config.yaml
@@ -27,4 +29,4 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: 172.16.10.0/24
+        - subnet: 172.16.20.0/24
