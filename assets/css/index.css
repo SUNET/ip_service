@@ -17,6 +17,9 @@ td {
 
 .ip-box {
     box-sizing: content-box;
-    border: 1px solid #cbcbcb;
+    border-style: dotted;
+    border-width: 2px;
+    border-color: rgb(105, 104, 104);
     background-color: rgb(192, 192, 192);
+    font-size: 40px;
 }
