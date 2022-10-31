@@ -4,6 +4,7 @@ import (
 	"context"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"strings"
 	"time"
 
 	"github.com/peterbourgon/diskv/v3"
@@ -34,11 +35,29 @@ func New(ctx context.Context, cfg *model.Cfg, log *logger.Logger) (*Service, err
 	return s, nil
 }
 
+func advancedTransform(key string) *diskv.PathKey {
+	path := strings.Split(key, "/")
+	last := len(path) - 1
+	return &diskv.PathKey{
+		Path:     path[:last],
+		FileName: path[last] + ".txt",
+	}
+}
+
+func inverseTransform(pathKey *diskv.PathKey) (key string) {
+	txt := pathKey.FileName[len(pathKey.FileName)-4:]
+	if txt != ".txt" {
+		panic("Invalid file found in storage folder!")
+	}
+	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
+}
+
 func (s *Service) newKV(ctx context.Context) error {
 	diskvClient := diskv.New(diskv.Options{
-		BasePath:     "store",
-		Transform:    func(s string) []string { return []string{} },
-		CacheSizeMax: 1024 * 1024,
+		BasePath:          s.cfg.Store.File.Path,
+		AdvancedTransform: advancedTransform,
+		InverseTransform:  inverseTransform,
+		CacheSizeMax:      1024 * 1024,
 	})
 
 	kv := &KV{
@@ -63,17 +82,7 @@ func (s *Service) Status(ctx context.Context) *model.StatusService {
 			Interval:    10 * time.Second,
 		}
 
-		if err := s.KV.Set(ctx, "statusTest", "test"); err != nil {
-			status.Message = err.Error()
-			return status
-		}
-
-		if s.KV.Get(ctx, "statusTest") != "test" {
-			status.Message = "Can't access statusTest key-value entry"
-			return status
-		}
-
-		if err := s.KV.Del(ctx, "statusTest"); err != nil {
+		if err := s.KV.statusTest(ctx); err != nil {
 			status.Message = err.Error()
 			return status
 		}

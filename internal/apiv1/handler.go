@@ -97,9 +97,9 @@ type RequestLookUpIP struct {
 	IP string `uri:"ip" validate:"required"`
 }
 
-func (c *Client) LookUpIP(ctx context.Context, indata *RequestLookUpIP) (*model.ReplyIPInformation, error) {
+func (c *Client) LookUpIP(ctx context.Context, indata *RequestLookUpIP) (*model.ReplyLookUp, error) {
 	ctx = context.WithValue(ctx, "ip", indata.IP)
-	return c.formatAllJSON(ctx)
+	return c.formatLookUpJSON(ctx)
 }
 
 func (c *Client) Info(ctx context.Context) (*model.ReplyInfo, error) {

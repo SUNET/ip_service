@@ -181,6 +181,72 @@ func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, 
 	}, nil
 }
 
+func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, error) {
+	ipDecimal, err := c.IPDecimal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	asn, err := c.asn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	asnOrg, err := c.asnOrganization(ctx)
+	if err != nil {
+		return nil, err
+	}
+	city, err := c.city(ctx)
+	if err != nil {
+		return nil, err
+	}
+	country, err := c.country(ctx)
+	if err != nil {
+		return nil, err
+	}
+	countryISO, err := c.countryISO(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eu, err := c.isEU(ctx)
+	if err != nil {
+		return nil, err
+	}
+	postal, err := c.postal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	coordinates, err := c.coordinates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tz, err := c.timezone(ctx)
+	if err != nil {
+		return nil, err
+	}
+	continent, err := c.continent(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.ReplyLookUp{
+		IP:              c.getIP(ctx),
+		IPDecimal:       ipDecimal,
+		ASN:             asn,
+		ASNOrganization: asnOrg,
+		City:            city,
+		Country:         country,
+		CountryISO:      countryISO,
+		IsEU:            eu,
+		Region:          "",
+		RegionCode:      "",
+		PostalCode:      postal,
+		Latitude:        coordinates[0],
+		Longitude:       coordinates[1],
+		Timezone:        tz,
+		Hostname:        "",
+		Continent:       continent,
+	}, nil
+}
+
 func (c *Client) region(ctx context.Context) (string, error) {
 	//	m, err := c.max.City(net.IP(c.getRemoteIP(ctx)))
 	//	if err != nil {

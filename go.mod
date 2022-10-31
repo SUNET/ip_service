@@ -1,6 +1,6 @@
 module ip_service
 
-go 1.18
+go 1.19
 
 require (
 	github.com/gin-gonic/gin v1.8.1
@@ -8,6 +8,7 @@ require (
 	github.com/golang/gddo v0.0.0-20210115222349-20d68f94ee1f
 	github.com/google/go-cmp v0.5.7
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/masv3971/goladok3 v0.0.76
 	github.com/mileusna/useragent v1.0.2
 	github.com/moogar0880/problems v0.1.1
@@ -29,6 +30,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/goccy/go-json v0.9.7 // indirect
 	github.com/google/btree v1.0.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect

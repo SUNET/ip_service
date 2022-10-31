@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"ip_service/internal/store"
-	"ip_service/pkg/logger"
-	"ip_service/pkg/model"
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
+
+	"ip_service/internal/store"
+	"ip_service/pkg/logger"
+	"ip_service/pkg/model"
 
 	"github.com/oschwald/geoip2-golang"
 )
@@ -19,7 +21,7 @@ import (
 type Service struct {
 	cfg      *model.Cfg
 	log      *logger.Logger
-	dbFiles  map[string]dbObject
+	dbMeta   map[string]dbObject
 	DBCity   *geoip2.Reader
 	DBASN    *geoip2.Reader
 	kvStore  kvStore
@@ -27,8 +29,10 @@ type Service struct {
 }
 
 type kvStore interface {
-	Set(ctx context.Context, k string, v string) error
-	Get(ctx context.Context, k string) string
+	GetRemoteVersion(ctx context.Context, k string) string
+	SetLastChecked(ctx context.Context, k string) error
+	SetPreviousVersion(ctx context.Context, k string) error
+	SetRemoteVersion(ctx context.Context, k, v string) error
 }
 
 type dbObject struct {
@@ -43,7 +47,7 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, log *logger.
 		log:      log,
 		kvStore:  store.KV,
 		quitChan: make(chan bool),
-		dbFiles: map[string]dbObject{
+		dbMeta: map[string]dbObject{
 			"City": {
 				filePath: filepath.Join("db", "GeoLite2-City.mmdb"),
 				url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz",
@@ -55,17 +59,24 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, log *logger.
 		},
 	}
 
-	for dbType, object := range s.dbFiles {
-		s.openDB(ctx, dbType, object.url, object.filePath)
+	for dbType := range s.dbMeta {
+		s.openDB(ctx, dbType)
 	}
 
-	ticker := time.NewTicker(time.Duration(s.cfg.MaxMind.UpdatePeriodicity * time.Second))
+	ticker := time.NewTicker(s.cfg.MaxMind.UpdatePeriodicity * time.Second)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				for dbType, object := range s.dbFiles {
-					s.openDB(ctx, dbType, object.url, object.filePath)
+				if cfg.MaxMind.AutomaticUpdate {
+					for dbType := range s.dbMeta {
+						if err := s.openDB(ctx, dbType); err != nil {
+							s.log.Warn("Error", "value", err)
+						}
+					}
+					if !s.Status(ctx).Healthy {
+						s.log.Warn("kind", "value", reflect.TypeOf(s.Status(ctx).ErrorType))
+					}
 				}
 			case <-s.quitChan:
 				s.log.Info("quit database update")
@@ -78,53 +89,57 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, log *logger.
 	return s, nil
 }
 
-func (s *Service) openDB(ctx context.Context, dbType, url, filePath string) {
+func (s *Service) openDB(ctx context.Context, dbType string) error {
 	var missingDBFile bool
 
+	s.kvStore.SetLastChecked(ctx, dbType)
+
+	s.log.Info("Run openDB for", "dbType", dbType)
 	if _, err := os.Stat("db"); errors.Is(err, os.ErrNotExist) {
 		if err := os.Mkdir("db", os.ModePerm); err != nil {
-			s.log.Warn("Error", "create db folder")
+			return err
 		}
 	}
 
-	if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(s.dbMeta[dbType].filePath); errors.Is(err, os.ErrNotExist) {
 		missingDBFile = true
 	}
 
-	s.log.Info("Run openDB for", "dbType", dbType)
-	haveNewVersion, err := s.isNewVersion(ctx, dbType, url)
+	haveNewVersion, err := s.isNewVersion(ctx, dbType)
 	if err != nil {
-		s.log.Warn("Error", "value", err)
+		return err
 	}
 
 	if haveNewVersion || missingDBFile {
-		if err := s.getLatestDB(ctx, url, dbType); err != nil {
-			s.log.Warn("Error", "value", err)
+		s.log.Info("Getting the latest remote database", "dbType", dbType)
+		if err := s.getLatestDB(ctx, dbType); err != nil {
+			return err
 		}
 
+		s.log.Info("UnTar", "dbType", dbType)
 		if err := s.unTAR(dbType); err != nil {
-			s.log.Warn("Error", "value", err)
+			return err
 		}
 
+		s.log.Info("Cleanup tar archive for database", "dbType", dbType)
 		if err := s.cleanUpTarArchive(dbType); err != nil {
-			s.log.Warn("Error", "value", err)
+			return err
 		}
+	}
+
+	db, err := geoip2.Open(s.dbMeta[dbType].filePath)
+	if err != nil {
+		return err
 	}
 
 	switch dbType {
 	case "City":
-		db, err := geoip2.Open(filePath)
-		if err != nil {
-			s.log.Warn("Error", "value", err)
-		}
 		s.DBCity = db
 	case "ASN":
-		db, err := geoip2.Open(filePath)
-		if err != nil {
-			s.log.Warn("Error", "value", err)
-		}
 		s.DBASN = db
 	}
+
+	return nil
 }
 
 var (
@@ -144,12 +159,14 @@ func (s *Service) Status(ctx context.Context) *model.StatusService {
 			_, err := s.DBCity.Country(net.ParseIP(testIP))
 			if err != nil {
 				status.Message = fmt.Sprintf("dbCity country: %v", err)
+				s.log.Warn("type", "value", reflect.TypeOf(err))
 				return status
 			}
 
 			_, err = s.DBASN.ASN(net.ParseIP(testIP))
 			if err != nil {
 				status.Message = fmt.Sprintf("dbASN ASN %v", err)
+				s.log.Warn("type", "value", reflect.TypeOf(err))
 				return status
 			}
 		}

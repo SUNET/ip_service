@@ -17,9 +17,9 @@ import (
 )
 
 // getLatestDB retrieve the latest version of database
-func (s *Service) getLatestDB(ctx context.Context, url, dbType string) error {
+func (s *Service) getLatestDB(ctx context.Context, dbType string) error {
 	s.log.Info(fmt.Sprintf("Fetching %s database from maxmind", dbType))
-	resp, err := http.Get(fmt.Sprintf(url, s.cfg.MaxMind.LicenseKey))
+	resp, err := http.Get(fmt.Sprintf(s.dbMeta[dbType].url, s.cfg.MaxMind.LicenseKey))
 	if err != nil {
 		return err
 	}
@@ -41,11 +41,11 @@ func (s *Service) getLatestDB(ctx context.Context, url, dbType string) error {
 		return err
 	}
 
-	remoteTime, err := s.getRemoteVersion(ctx, dbType, url)
+	remoteTime, err := s.getRemoteVersion(ctx, dbType)
 	if err != nil {
 		return err
 	}
-	if err := s.kvStore.Set(ctx, dbType, remoteTime); err != nil {
+	if err := s.kvStore.SetRemoteVersion(ctx, dbType, remoteTime); err != nil {
 		return err
 	}
 
@@ -108,8 +108,8 @@ func (s *Service) unTAR(dbType string) error {
 }
 
 // getRemoteVersion retrieve the latest remote version.
-func (s *Service) getRemoteVersion(ctx context.Context, dbType, url string) (string, error) {
-	resp, err := http.Head(fmt.Sprintf(url, s.cfg.MaxMind.LicenseKey))
+func (s *Service) getRemoteVersion(ctx context.Context, dbType string) (string, error) {
+	resp, err := http.Head(fmt.Sprintf(s.dbMeta[dbType].url, s.cfg.MaxMind.LicenseKey))
 	if err != nil {
 		return "", err
 	}
@@ -125,13 +125,13 @@ func (s *Service) getRemoteVersion(ctx context.Context, dbType, url string) (str
 	return remoteLastMod.String(), nil
 }
 
-func (s *Service) isNewVersion(ctx context.Context, dbType, url string) (bool, error) {
-	remoteLastMod, err := s.getRemoteVersion(ctx, dbType, url)
+func (s *Service) isNewVersion(ctx context.Context, dbType string) (bool, error) {
+	remoteLastMod, err := s.getRemoteVersion(ctx, dbType)
 	if err != nil {
 		return false, err
 	}
 
-	savedLastMod := s.kvStore.Get(ctx, dbType)
+	savedLastMod := s.kvStore.GetRemoteVersion(ctx, dbType)
 
 	if remoteLastMod == savedLastMod {
 		s.log.Info(fmt.Sprintf("No new %s maxmind database version found", dbType))

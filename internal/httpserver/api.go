@@ -30,7 +30,7 @@ type Apiv1 interface {
 
 	AllJSON(ctx context.Context) (*model.ReplyIPInformation, error)
 
-	LookUpIP(ctx context.Context, indata *apiv1.RequestLookUpIP) (*model.ReplyIPInformation, error)
+	LookUpIP(ctx context.Context, indata *apiv1.RequestLookUpIP) (*model.ReplyLookUp, error)
 
 	Info(ctx context.Context) (*model.ReplyInfo, error)
 

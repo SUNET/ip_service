@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+
 	"ip_service/internal/apiv1"
 
 	"github.com/gin-gonic/gin"
@@ -149,15 +150,6 @@ func (s *Service) endpointAll(ctx context.Context, c *gin.Context) (interface{},
 		return nil, err
 	}
 	return reply, nil
-	//switch c.Request.Header.Get("Accept") {
-	//case gin.MIMEJSON, model.WebBrowserAccept, gin.MIMEHTML:
-	//default:
-	//	reply, err := s.apiv1.AllText(ctx)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	return reply, nil
-	//}
 }
 
 func (s *Service) endpointLookUpIP(ctx context.Context, c *gin.Context) (interface{}, error) {

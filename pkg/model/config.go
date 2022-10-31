@@ -16,6 +16,7 @@ type Cfg struct {
 	} `yaml:"log"`
 
 	MaxMind struct {
+		AutomaticUpdate   bool          `yaml:"automatic_update"`
 		UpdatePeriodicity time.Duration `yaml:"update_periodicity"`
 		LicenseKey        string        `yaml:"license_key"`
 		Enterprise        bool          `yaml:"enterprise"`

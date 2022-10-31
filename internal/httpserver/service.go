@@ -54,8 +54,10 @@ func New(ctx context.Context, config *model.Cfg, api *apiv1.Client, logger *logg
 	s.gin.LoadHTMLGlob("templates/*.html")
 	s.gin.Static("/assets", "./assets")
 
+
 	// Middlewares
 	s.gin.Use(s.middlewareDuration(ctx))
+	s.gin.Use(s.middlewareTraceID(ctx))
 	s.gin.Use(s.middlewareLogger(ctx))
 	s.gin.Use(s.middlewareCrash(ctx))
 	s.gin.NoRoute(func(c *gin.Context) {
@@ -103,9 +105,6 @@ func (s *Service) regEndpoint(ctx context.Context, method, path string, handler 
 			switch res.(type) {
 			case *model.ReplyIPInformation:
 				c.HTML(http.StatusOK, "index.html", res.(*model.ReplyIPInformation))
-				//	gin.H{
-				//		"data": res.(*model.ReplyIPInformation),
-				//	})
 			}
 		case "application/json":
 			c.IndentedJSON(200, res)

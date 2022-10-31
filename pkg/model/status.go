@@ -15,6 +15,7 @@ var (
 type StatusService struct {
 	ServiceName string        `json:"service_name,omitempty"`
 	Message     string        `json:"message,omitempty"`
+	ErrorType   string        `json:"error_type,omitempty"`
 	Healthy     bool          `json:"healthy,omitempty"`
 	Status      string        `json:"status,omitempty"`
 	Timestamp   time.Time     `json:"timestamp,omitempty"`

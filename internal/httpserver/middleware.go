@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lithammer/shortuuid/v4"
 )
 
 func (s *Service) middlewareDuration(ctx context.Context) gin.HandlerFunc {
@@ -17,11 +18,19 @@ func (s *Service) middlewareDuration(ctx context.Context) gin.HandlerFunc {
 	}
 }
 
+func (s *Service) middlewareTraceID(ctx context.Context) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("req-id", shortuuid.New())
+		c.Header("req-id", c.GetString("req-id"))
+		c.Next()
+	}
+}
+
 func (s *Service) middlewareLogger(ctx context.Context) gin.HandlerFunc {
 	log := s.logger.New("http")
 	return func(c *gin.Context) {
 		c.Next()
-		log.Info("request", "status", c.Writer.Status(), "url", c.Request.URL.String(), "method", c.Request.Method)
+		log.Info("request", "status", c.Writer.Status(), "url", c.Request.URL.String(), "method", c.Request.Method, "req-id", c.GetString("req-id"))
 	}
 }
 
@@ -31,8 +40,7 @@ func (s *Service) middlewareCrash(ctx context.Context) gin.HandlerFunc {
 		defer func() {
 			if r := recover(); r != nil {
 				status := c.Writer.Status()
-				log.Error("crash", "error", r, "status", status, "url", c.Request.URL.Path, "method", c.Request.Method)
-				//renderContent(c, 500, gin.H{"data": nil, "error": helpers.NewError("internal_server_error")})
+				log.Error("crash", "error", r, "status", status, "url", c.Request.URL.Path, "method", c.Request.Method, "req-id", c.GetString("req-id"))
 				c.JSON(500, gin.H{"data": nil, "error": helpers.NewError("internal_server_error")})
 			}
 		}()

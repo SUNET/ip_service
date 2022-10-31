@@ -7,15 +7,16 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"ip_service/internal/apiv1"
-	"ip_service/internal/maxmind"
-	"ip_service/pkg/logger"
-	"ip_service/pkg/model"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"testing"
+
+	"ip_service/internal/apiv1"
+	"ip_service/internal/maxmind"
+	"ip_service/pkg/logger"
+	"ip_service/pkg/model"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-cmp/cmp"
@@ -26,7 +27,6 @@ import (
 
 const (
 	mockIP           = "89.160.20.112"
-	mockISP          = "89.160.0.0"
 	mockUserAgent    = "test-application/3.14.15"
 	mockAcceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
 )
@@ -487,7 +487,7 @@ func TestEndpoints(t *testing.T) {
 				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCoordinatesPlain,
 			},
-			want: fmt.Sprintf("%v",[]float64{58.4167, 15.6167}),
+			want: fmt.Sprintf("%v", []float64{58.4167, 15.6167}),
 		},
 		{
 			have: have{

@@ -4,6 +4,7 @@ version: '3.4'
 services:
   ip_service:
     image: docker.sunet.se/ip_service:latest
+    #image: ip_service:latest
     networks:
       ip_service_net:
         ipv4_address: 172.16.20.250
