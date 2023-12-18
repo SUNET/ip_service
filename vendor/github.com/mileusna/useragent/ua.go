@@ -8,7 +8,7 @@ import (
 
 // UserAgent struct containg all determined datra from parsed user-agent string
 type UserAgent struct {
-	Name      string `json:"name"`
+	Name      string
 	Version   string
 	OS        string
 	OSVersion string
