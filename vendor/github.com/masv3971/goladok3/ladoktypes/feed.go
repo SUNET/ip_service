@@ -264,7 +264,7 @@ type SuperResultat struct {
 	ResultatUID        string `json:"resultat_uid"`
 }
 
-// SuperEvent is a made up type consists of all the aviable ladok attributes
+// SuperEvent is a made up type consists of all the available ladok attributes
 type SuperEvent struct {
 	EventTypeName         string            `json:"event_type_name"`
 	EntryID               string            `json:"entry_id"`

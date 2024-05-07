@@ -11,9 +11,9 @@ var (
 	// ErrNoEnvFound if no valid environment is found in certificate (ou)
 	ErrNoEnvFound = errors.New("No valid ladok environment (OU) found in certificate")
 	// ErrNotSufficientPermissions if not all provided permissions are met
-	ErrNotSufficientPermissions = PermissionError{Msg: "No permissions found in ladok"}
+	ErrNotSufficientPermissions = PermissionErrors{{Msg: "No permissions found in ladok"}}
 	// ErrNoPermissionProvided when input Permission is empty
-	ErrNoPermissionProvided = PermissionError{Msg: "No permissions provided"}
+	ErrNoPermissionProvided = PermissionErrors{{Msg: "No permissions provided"}}
 )
 
 // FromLadokError returns error by Ladok
@@ -52,9 +52,9 @@ func (f *LadokError) Error() string {
 }
 
 type PermissionError struct {
-	Msg                 string
-	MissingPermissionID int64
-	PermissionLevel     string
+	Msg                 string `json:"msg"`
+	MissingPermissionID int64  `json:"missing_permission_id"`
+	PermissionLevel     string `json:"permission_level"`
 }
 
 func (p PermissionError) Error() string {
@@ -64,7 +64,7 @@ func (p PermissionError) Error() string {
 type PermissionErrors []PermissionError
 
 func (p PermissionErrors) Error() string {
-	if len(p) < 1 {
+	if len(p) == 0 {
 		return ""
 	}
 

@@ -1,4 +1,4 @@
-package ua
+package useragent
 
 // IsWindows shorthand function to check if OS == Windows
 func (ua UserAgent) IsWindows() bool {
@@ -23,6 +23,11 @@ func (ua UserAgent) IsIOS() bool {
 // IsLinux shorthand function to check if OS == Linux
 func (ua UserAgent) IsLinux() bool {
 	return ua.OS == Linux
+}
+
+// IsChromeOS shorthand function to check if OS == CrOS
+func (ua UserAgent) IsChromeOS() bool {
+	return ua.OS == ChromeOS || ua.OS == "CrOS"
 }
 
 // IsOpera shorthand function to check if Name == Opera
@@ -73,4 +78,10 @@ func (ua UserAgent) IsTwitterbot() bool {
 // IsFacebookbot shorthand function to check if Name == FacebookExternalHit
 func (ua UserAgent) IsFacebookbot() bool {
 	return ua.Name == FacebookExternalHit
+}
+
+// IsUnknown returns true if the package can't determine the user agent reliably.
+// Fields like Name, OS, etc. might still have values.
+func (ua UserAgent) IsUnknown() bool {
+	return !ua.Mobile && !ua.Tablet && !ua.Desktop && !ua.Bot
 }
