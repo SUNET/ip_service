@@ -8,6 +8,7 @@ import (
 	"ip_service/internal/store"
 	"ip_service/pkg/configuration"
 	"ip_service/pkg/logger"
+	"ip_service/pkg/trace"
 	"os"
 	"os/signal"
 	"sync"
@@ -20,57 +21,62 @@ type service interface {
 }
 
 func main() {
+	var wg sync.WaitGroup
 	ctx := context.Background()
-	wg := &sync.WaitGroup{}
 
-	var (
-		log      *logger.Logger
-		mainLog  *logger.Logger
-		services = make(map[string]service)
-	)
+	services := make(map[string]service)
 
-	cfg, err := configuration.Parse(logger.NewSimple("Configuration"))
+	cfg, err := configuration.Parse(ctx, logger.NewSimple("Configuration"))
 	if err != nil {
 		panic(err)
 	}
 
-	mainLog = logger.New("main", cfg.Production)
-	log = logger.New("ip_service", cfg.Production)
+	log, err := logger.New("ip_service", cfg.IPService.Log.FolderPath, cfg.IPService.Production)
+	if err != nil {
+		panic(err)
+	}
 
-	store, err := store.New(ctx, cfg, log.New("store"))
+	tracer, err := trace.New(ctx, cfg, log, "ip_service", "kalle_kula")
+	if err != nil {
+		panic(err)
+	}
+
+	store, err := store.New(ctx, cfg, tracer, log.New("store"))
 	services["store"] = store
 	if err != nil {
 		panic(err)
 	}
-	max, err := maxmind.New(ctx, cfg, store, log.New("maxmind"))
+	max, err := maxmind.New(ctx, cfg, store, tracer, log.New("maxmind"))
 	services["maxmind"] = max
 	if err != nil {
 		panic(err)
 	}
-	apiv1, err := apiv1.New(ctx, max, store, cfg, log.New("apiv1"))
+	apiv1, err := apiv1.New(ctx, max, store, cfg, tracer, log.New("apiv1"))
 	if err != nil {
 		panic(err)
 	}
-	httpserver, err := httpserver.New(ctx, cfg, apiv1, log.New("httpserver"))
+	httpserver, err := httpserver.New(ctx, cfg, apiv1, tracer, log.New("httpserver"))
 	services["httpserver"] = httpserver
 	if err != nil {
 		panic(err)
 	}
 
 	// add timestamp in storage which time the service was started
-	store.KV.Set(ctx, "started", time.Now().String())
+	if err := store.KV.Set(ctx, "started", time.Now().String()); err != nil {
+		panic(err)
+	}
 
 	// Handle sigterm and await termChan signal
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-termChan // Blocks here until interrupted
-
-	log.Info("HALTING SIGNAL!")
+	mainLog := log.New("main")
+	mainLog.Info("HALTING SIGNAL!")
 
 	for serviceName, service := range services {
 		if err := service.Close(ctx); err != nil {
-			mainLog.Warn("shutdown", serviceName, err)
+			mainLog.Error(err, "serviceName", serviceName)
 		}
 	}
 

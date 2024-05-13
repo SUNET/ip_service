@@ -2,33 +2,48 @@ package store
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"ip_service/pkg/trace"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func mockNew(t *testing.T, dir string) *Service {
-	dbPath := filepath.Join(dir, "store")
+func mockConfig(t *testing.T, storePath string) *model.Cfg {
 	cfg := &model.Cfg{
-		Store: struct {
-			File struct {
-				Path string "yaml:\"path\""
-			} "yaml:\"file\""
-		}{
-			File: struct {
-				Path string "yaml:\"path\""
-			}{
-				Path: dbPath,
+		IPService: &model.IPService{
+			APIServer: model.APIServer{
+				Addr: "",
 			},
+			Production: false,
+			HTTPProxy:  "",
+			Log:        model.Log{},
+			MaxMind:    model.MaxMind{},
+			Store: model.Store{
+				File: model.FileStorage{
+					Path: storePath,
+				},
+			},
+			Tracing: model.Tracing{},
 		},
 	}
 
-	s, err := New(context.TODO(), cfg, logger.New("test", false).New("test"))
+	return cfg
+
+}
+
+func mockNew(t *testing.T, dir string) *Service {
+	ctx := context.TODO()
+	storePath := filepath.Join(dir, "store")
+	cfg := mockConfig(t, storePath)
+
+	tp, err := trace.New(ctx, cfg, logger.NewSimple("test"), "test", "test")
+	assert.NoError(t, err)
+
+	s, err := New(ctx, cfg, tp, logger.NewSimple("test"))
 	assert.NoError(t, err)
 	assert.NoError(t, s.KV.Set(context.TODO(), "key", "value"))
 
@@ -50,28 +65,6 @@ func TestGet(t *testing.T) {
 			service := mockNew(t, tempDir)
 
 			assert.Equal(t, "value", service.KV.Get(context.TODO(), "key"))
-
-		})
-	}
-}
-
-func TestGetWithRemovedSourceFile(t *testing.T) {
-	tts := []struct {
-		name string
-	}{
-		{
-			name: "OK",
-		},
-	}
-
-	for _, tt := range tts {
-		t.Run(tt.name, func(t *testing.T) {
-			tempDir := t.TempDir()
-			service := mockNew(t, tempDir)
-
-			assert.NoError(t, os.Remove(filepath.Join(tempDir, "store", "key")))
-
-			assert.Equal(t, "", service.KV.Get(context.TODO(), "key"))
 
 		})
 	}

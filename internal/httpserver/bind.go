@@ -1,22 +1,29 @@
 package httpserver
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Service) bindRequest(c *gin.Context, v interface{}) error {
+func (s *Service) bindRequest(ctx context.Context, c *gin.Context, v interface{}) error {
+	ctx, span := s.TP.Start(ctx, "httpserver:bindRequest")
+	defer span.End()
+
 	if c.ContentType() == gin.MIMEJSON {
 		_ = c.ShouldBindJSON(v)
 	}
-	_ = s.bindRequestQuery(c, v)
+	_ = s.bindRequestQuery(ctx, c, v)
 	_ = c.ShouldBindQuery(v)
 	return c.ShouldBindUri(v)
 }
 
-func (s *Service) bindRequestQuery(c *gin.Context, v interface{}) error {
+func (s *Service) bindRequestQuery(ctx context.Context, c *gin.Context, v interface{}) error {
+	_, span := s.TP.Start(ctx, "httpserver:bindRequestQuery")
+	defer span.End()
+
 	refV := reflect.ValueOf(v).Elem()
 	refT := reflect.ValueOf(v).Elem().Type()
 	for i := 0; i < refT.NumField(); i++ {

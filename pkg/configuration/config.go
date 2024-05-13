@@ -1,11 +1,13 @@
 package configuration
 
 import (
+	"context"
 	"errors"
 	"ip_service/pkg/helpers"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
 	"os"
+	"path/filepath"
 
 	"github.com/kelseyhightower/envconfig"
 	"gopkg.in/yaml.v2"
@@ -16,7 +18,7 @@ type envVars struct {
 }
 
 // Parse parses config file from CONFIG_YAML environment variable
-func Parse(logger *logger.Logger) (*model.Cfg, error) {
+func Parse(ctx context.Context, logger *logger.Log) (*model.Cfg, error) {
 	logger.Info("Read environmental variable")
 	var env envVars
 	if err := envconfig.Process("", &env); err != nil {
@@ -25,9 +27,9 @@ func Parse(logger *logger.Logger) (*model.Cfg, error) {
 
 	configPath := env.ConfigYAML
 
-	config := &model.Config{}
+	config := &model.Cfg{}
 
-	configFile, err := os.ReadFile(configPath)
+	configFile, err := os.ReadFile(filepath.Clean(configPath))
 	if err != nil {
 		return nil, err
 	}
@@ -45,9 +47,9 @@ func Parse(logger *logger.Logger) (*model.Cfg, error) {
 		return nil, err
 	}
 
-	if err := helpers.Check(config, logger); err != nil {
+	if err := helpers.Check(ctx, config, config, logger); err != nil {
 		return nil, err
 	}
 
-	return config.IPService, nil
+	return config, nil
 }

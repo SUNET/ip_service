@@ -3,33 +3,62 @@ package maxmind
 import (
 	"context"
 	"fmt"
+	"ip_service/internal/store"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"ip_service/pkg/trace"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/oschwald/geoip2-golang"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	latest_ts = "Thu, 01 Sep 2022 18:54:52 GMT"
-	old_ts    = "Thu, 01 Aug 2022 18:54:52 GMT"
+	latestTS = "Thu, 01 Sep 2022 18:54:52 GMT"
+	oldTS    = "Thu, 01 Aug 2022 18:54:52 GMT"
 )
 
-func mockService(t *testing.T, dir string) *Service {
-	asnFilePath := filepath.Join("..", "..", "testdata", "GeoLite2-ASN-Test.mmdb")
-	cityFilePath := filepath.Join("..", "..", "testdata", "GeoLite2-City-Test.mmdb")
-	dbCity, err := geoip2.Open(cityFilePath)
-	assert.NoError(t, err)
+func mockConfig(t *testing.T, storePath string) *model.Cfg {
+	cfg := &model.Cfg{
+		IPService: &model.IPService{
+			APIServer: model.APIServer{
+				Addr: "",
+			},
+			Production: false,
+			HTTPProxy:  "",
+			Log:        model.Log{},
+			MaxMind: model.MaxMind{
+				AutomaticUpdate:   true,
+				UpdatePeriodicity: 100,
+				LicenseKey:        "",
+				Enterprise:        false,
+				RetryCounter:      0,
+				DB: map[string]model.MaxMindDB{
+					"asn": {
+						FilePath: filepath.Join("..", "..", "testdata", "GeoLite2-asn-Test.mmdb"),
+					},
+					"city": {
+						FilePath: filepath.Join("..", "..", "testdata", "GeoLite2-city-Test.mmdb"),
+					},
+				},
+			},
+			Store: model.Store{
+				File: model.FileStorage{
+					Path: storePath,
+				},
+			},
+			Tracing: model.Tracing{},
+		},
+	}
 
-	dbASN, err := geoip2.Open(asnFilePath)
-	assert.NoError(t, err)
+	return cfg
 
+}
+
+func mockService(t *testing.T, storeDir string, preOpenDB bool) *Service {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
 
@@ -37,46 +66,16 @@ func mockService(t *testing.T, dir string) *Service {
 
 	mockGenericEndpointServer(t, mux, "HEAD", fmt.Sprintf(url, "testKey"), nil, 200)
 
-	s := &Service{
-		cfg: &model.Cfg{
-			MaxMind: struct {
-				AutomaticUpdate   bool          "yaml:\"automatic_update\""
-				UpdatePeriodicity time.Duration "yaml:\"update_periodicity\""
-				LicenseKey        string        "yaml:\"license_key\""
-				Enterprise        bool          "yaml:\"enterprise\""
-			}{
-				UpdatePeriodicity: 10,
-				LicenseKey:        "testKey",
-				Enterprise:        false,
-			},
-			Store: struct {
-				File struct {
-					Path string "yaml:\"path\""
-				} "yaml:\"file\""
-			}{
-				File: struct {
-					Path string "yaml:\"path\""
-				}{
-					Path: dir,
-				},
-			},
-		},
-		log: logger.New("test", false).New("test"),
-		dbMeta: map[string]dbObject{
-			"ASN": {
-				url:      url,
-				filePath: asnFilePath,
-			},
-			"City": {
-				url:      url,
-				filePath: cityFilePath,
-			},
-		},
-		DBCity:   dbCity,
-		DBASN:    dbASN,
-		kvStore:  nil,
-		quitChan: make(chan bool),
-	}
+	tracer, err := trace.NoTracing(context.TODO())
+	assert.NoError(t, err)
+
+	cfg := mockConfig(t, storeDir)
+
+	store, err := store.New(context.TODO(), cfg, tracer, logger.NewSimple("test-store"))
+	assert.NoError(t, err)
+
+	s, err := New(context.TODO(), cfg, store, tracer, logger.NewSimple("test-maxmind"))
+	assert.NoError(t, err)
 
 	return s
 }
@@ -84,12 +83,13 @@ func mockService(t *testing.T, dir string) *Service {
 func mockGenericEndpointServer(t *testing.T, mux *http.ServeMux, method, url string, reply []byte, statusCode int) {
 	mux.HandleFunc(url,
 		func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("last-modified", latest_ts)
+			w.Header().Set("last-modified", latestTS)
 			w.Header().Set("Content-Type", "text/html")
 			w.WriteHeader(statusCode)
 			testMethod(t, r, method)
 			testURL(t, r, url)
-			w.Write(reply)
+			_, err := w.Write(reply)
+			assert.NoError(t, err)
 		},
 	)
 }
@@ -102,32 +102,7 @@ func testURL(t *testing.T, r *http.Request, want string) {
 	assert.Equal(t, want, r.RequestURI)
 }
 
-func TestGetRemoteVersion(t *testing.T) {
-	tts := []struct {
-		name string
-		have string
-		want string
-	}{
-		{
-			name: "OK",
-			want: "mura",
-		},
-	}
-
-	for _, tt := range tts {
-		t.Run(tt.name, func(t *testing.T) {
-			tempDir := t.TempDir()
-			service := mockService(t, tempDir)
-			got, err := service.getRemoteVersion(context.TODO(), "ASN")
-			fmt.Println("got", got)
-			assert.NoError(t, err)
-			//assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestOpenDB(t *testing.T) {
-	t.SkipNow()
 	type have struct {
 		dbType string
 	}
@@ -137,9 +112,16 @@ func TestOpenDB(t *testing.T) {
 		want string
 	}{
 		{
-			name: "OK",
+			name: "1-ASN-OK",
 			have: have{
-				dbType: "ASN",
+				dbType: "asn",
+			},
+			want: "",
+		},
+		{
+			name: "2-City-OK",
+			have: have{
+				dbType: "city",
 			},
 			want: "",
 		},
@@ -148,9 +130,9 @@ func TestOpenDB(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
-			service := mockService(t, tempDir)
+			service := mockService(t, tempDir, false)
 
-			err := service.openDB(context.TODO(), tt.have.dbType)
+			err := service.loadDB(context.TODO(), tt.have.dbType)
 			assert.NoError(t, err)
 		})
 	}

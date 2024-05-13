@@ -3,188 +3,175 @@ package maxmind
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
 	"os"
-	"path/filepath"
-	"reflect"
+	"sync"
 	"time"
 
 	"ip_service/internal/store"
+	"ip_service/pkg/helpers"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"ip_service/pkg/trace"
 
 	"github.com/oschwald/geoip2-golang"
+	"go.opentelemetry.io/otel/codes"
+	"golang.org/x/time/rate"
 )
 
 // Service holds the maxmind service object
 type Service struct {
-	cfg      *model.Cfg
-	log      *logger.Logger
-	dbMeta   map[string]dbObject
-	DBCity   *geoip2.Reader
-	DBASN    *geoip2.Reader
-	kvStore  kvStore
-	quitChan chan bool
+	probeStore   *model.StatusProbeStore
+	wg           sync.WaitGroup
+	cfg          *model.Cfg
+	log          *logger.Log
+	TP           *trace.Tracer
+	DBMeta       map[string]*DBObject
+	DBCity       *geoip2.Reader
+	DBASN        *geoip2.Reader
+	kvStore      kvStore
+	quitChan     chan bool
+	reloadChan   chan string
+	downloadChan chan string
+	updateChan   chan string
+	initialChan  chan string
 }
 
 type kvStore interface {
 	GetRemoteVersion(ctx context.Context, k string) string
+	GetLastChecked(ctx context.Context, k string) string
 	SetLastChecked(ctx context.Context, k string) error
 	SetPreviousVersion(ctx context.Context, k string) error
 	SetRemoteVersion(ctx context.Context, k, v string) error
 }
 
-type dbObject struct {
-	url      string
-	filePath string
+// DBObject holds the maxmind database object
+type DBObject struct {
+	urlDB     string
+	filePath  string
+	rateLimit rate.Limiter
+	MU        sync.RWMutex
 }
 
 // New creates a new instance of maxmind
-func New(ctx context.Context, cfg *model.Cfg, store *store.Service, log *logger.Logger) (*Service, error) {
+func New(ctx context.Context, cfg *model.Cfg, store *store.Service, tp *trace.Tracer, log *logger.Log) (*Service, error) {
 	s := &Service{
-		cfg:      cfg,
-		log:      log,
-		kvStore:  store.KV,
-		quitChan: make(chan bool),
-		dbMeta: map[string]dbObject{
-			"City": {
-				filePath: filepath.Join("db", "GeoLite2-City.mmdb"),
-				url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz",
+		probeStore:   &model.StatusProbeStore{},
+		wg:           sync.WaitGroup{},
+		cfg:          cfg,
+		log:          log,
+		TP:           tp,
+		kvStore:      store.KV,
+		quitChan:     make(chan bool),
+		reloadChan:   make(chan string, 10),
+		downloadChan: make(chan string, 10),
+		updateChan:   make(chan string, 10),
+		initialChan:  make(chan string, 10),
+		DBMeta: map[string]*DBObject{
+			"city": {
+				filePath:  cfg.IPService.MaxMind.DB["city"].FilePath,
+				urlDB:     "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz",
+				rateLimit: *rate.NewLimiter(rate.Every(24*time.Hour), 4),
 			},
-			"ASN": {
-				filePath: filepath.Join("db", "GeoLite2-ASN.mmdb"),
-				url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&license_key=%s&suffix=tar.gz",
+			"asn": {
+				filePath:  cfg.IPService.MaxMind.DB["asn"].FilePath,
+				urlDB:     "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&license_key=%s&suffix=tar.gz",
+				rateLimit: *rate.NewLimiter(rate.Every(24*time.Hour), 4),
 			},
 		},
 	}
 
-	for dbType := range s.dbMeta {
-		s.openDB(ctx, dbType)
-	}
+	updateTicker := time.NewTicker(s.cfg.IPService.MaxMind.UpdatePeriodicity * time.Second)
 
-	ticker := time.NewTicker(s.cfg.MaxMind.UpdatePeriodicity * time.Second)
+	s.wg.Add(1)
 	go func() {
 		for {
 			select {
-			case <-ticker.C:
-				if cfg.MaxMind.AutomaticUpdate {
-					for dbType := range s.dbMeta {
-						if err := s.openDB(ctx, dbType); err != nil {
-							s.log.Warn("Error", "value", err)
-						}
-					}
-					if !s.Status(ctx).Healthy {
-						s.log.Warn("kind", "value", reflect.TypeOf(s.Status(ctx).ErrorType))
+			// check periodically if there is a new version of the database available
+			case <-updateTicker.C:
+				if cfg.IPService.MaxMind.AutomaticUpdate {
+					for dbType := range s.DBMeta {
+						s.updateChan <- dbType
 					}
 				}
+
+			case dbType := <-s.initialChan:
+				s.log.Info("initialChan", "dbType", dbType)
+				if err := s.initial(ctx, dbType); err != nil {
+					s.log.Error(err, "initial")
+				}
+
+			case dbType := <-s.updateChan:
+				if s.checkNewDBVersion(ctx, dbType) || s.dbFilesMissing(ctx, dbType) {
+					s.log.Debug("updateChan", "dbType", dbType)
+					s.downloadChan <- dbType
+				}
+
+			case dbType := <-s.downloadChan:
+				s.log.Info("downloadChan", "dbType", dbType)
+				if err := s.dbDownloader(ctx, dbType); err != nil {
+					s.log.Error(err, "dbDownloader")
+				}
+				s.reloadChan <- dbType
+
+			case dbType := <-s.reloadChan:
+				s.log.Info("reloadChan", "dbType", dbType)
+				if err := s.loadDB(ctx, dbType); err != nil {
+					s.log.Error(err, "loadDB")
+				}
+
 			case <-s.quitChan:
 				s.log.Info("quit database update")
-				ticker.Stop()
+				updateTicker.Stop()
+				s.wg.Done()
 				return
 			}
 		}
 	}()
 
+	for dbType := range s.DBMeta {
+		s.log.Debug("init db", "dbType", dbType)
+		s.initialChan <- dbType
+	}
+
 	return s, nil
 }
 
-func (s *Service) openDB(ctx context.Context, dbType string) error {
-	var missingDBFile bool
+func (s *Service) loadDB(ctx context.Context, dbType string) error {
+	s.DBMeta[dbType].MU.Lock()
+	defer s.DBMeta[dbType].MU.Unlock()
 
-	s.kvStore.SetLastChecked(ctx, dbType)
+	_, span := s.TP.Start(ctx, "maxmind:loadDB")
+	defer span.End()
 
-	s.log.Info("Run openDB for", "dbType", dbType)
-	if _, err := os.Stat("db"); errors.Is(err, os.ErrNotExist) {
-		if err := os.Mkdir("db", os.ModePerm); err != nil {
-			return err
-		}
+	s.log.Info("Run loadDB for", "dbType", dbType)
+
+	if _, err := os.Stat(s.DBMeta[dbType].filePath); errors.Is(err, os.ErrNotExist) {
+		s.log.Error(err, "loadDB", "dbType", dbType, "path", s.DBMeta[dbType].filePath)
+		return helpers.ErrMissingDBFile
 	}
 
-	if _, err := os.Stat(s.dbMeta[dbType].filePath); errors.Is(err, os.ErrNotExist) {
-		missingDBFile = true
-	}
-
-	haveNewVersion, err := s.isNewVersion(ctx, dbType)
+	db, err := geoip2.Open(s.DBMeta[dbType].filePath)
 	if err != nil {
-		return err
-	}
-
-	if haveNewVersion || missingDBFile {
-		s.log.Info("Getting the latest remote database", "dbType", dbType)
-		if err := s.getLatestDB(ctx, dbType); err != nil {
-			return err
-		}
-
-		s.log.Info("UnTar", "dbType", dbType)
-		if err := s.unTAR(dbType); err != nil {
-			return err
-		}
-
-		s.log.Info("Cleanup tar archive for database", "dbType", dbType)
-		if err := s.cleanUpTarArchive(dbType); err != nil {
-			return err
-		}
-	}
-
-	db, err := geoip2.Open(s.dbMeta[dbType].filePath)
-	if err != nil {
+		s.log.Error(err, "geoip2.Open failed")
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
 	switch dbType {
-	case "City":
+	case "city":
 		s.DBCity = db
-	case "ASN":
+	case "asn":
 		s.DBASN = db
 	}
 
 	return nil
 }
 
-var (
-	nextRun    time.Time
-	lastStatus *model.StatusService
-)
-
-func (s *Service) Status(ctx context.Context) *model.StatusService {
-	if time.Now().After(nextRun) {
-		status := &model.StatusService{
-			ServiceName: "maxmind",
-			Timestamp:   time.Now(),
-			Interval:    10 * time.Second,
-		}
-
-		for _, testIP := range []string{"95.142.107.181", "110.50.243.6", "69.162.81.155"} {
-			_, err := s.DBCity.Country(net.ParseIP(testIP))
-			if err != nil {
-				status.Message = fmt.Sprintf("dbCity country: %v", err)
-				s.log.Warn("type", "value", reflect.TypeOf(err))
-				return status
-			}
-
-			_, err = s.DBASN.ASN(net.ParseIP(testIP))
-			if err != nil {
-				status.Message = fmt.Sprintf("dbASN ASN %v", err)
-				s.log.Warn("type", "value", reflect.TypeOf(err))
-				return status
-			}
-		}
-
-		status.Healthy = true
-		nextRun = time.Now().Add(status.Interval)
-		lastStatus = status
-
-		return status
-	}
-
-	return lastStatus
-}
-
 // Close closes maxmind service
 func (s *Service) Close(ctx context.Context) error {
-	s.log.Info("Quit")
 	s.quitChan <- true
+	s.wg.Wait()
 	ctx.Done()
+	s.log.Info("Quit")
 	return nil
 }

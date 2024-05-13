@@ -2,6 +2,7 @@ package apiv1
 
 import (
 	"context"
+	"ip_service/pkg/contexthandler"
 	"ip_service/pkg/model"
 	"math/big"
 	"net"
@@ -10,21 +11,41 @@ import (
 	"inet.af/netaddr"
 )
 
-func (c *Client) getIP(ctx context.Context) string {
-	return ctx.Value("ip").(string)
+func (c *Client) getIP(ctx context.Context) (string, error) {
+	requestContext, err := contexthandler.Get(ctx, "request")
+	if err != nil {
+		return "", err
+	}
+
+	return requestContext.ClientIP, nil
 }
 
-func (c *Client) getUserAgent(ctx context.Context) string {
-	return ctx.Value("ua").(string)
+func (c *Client) getUserAgent(ctx context.Context) (string, error) {
+	requestContext, err := contexthandler.Get(ctx, "request")
+	if err != nil {
+		return "", err
+	}
+
+	return requestContext.UserAgent, nil
 }
 
-func (c *Client) ua(ctx context.Context) ua.UserAgent {
-	return ua.Parse(c.getUserAgent(ctx))
+func (c *Client) ua(ctx context.Context) (ua.UserAgent, error) {
+	userAgent, err := c.getUserAgent(ctx)
+	if err != nil {
+		return ua.UserAgent{}, err
+	}
+	parsedUserAgent := ua.Parse(userAgent)
+
+	return parsedUserAgent, nil
 }
 
+// IPDecimal returns the IP address in decimal format
 func (c *Client) IPDecimal(ctx context.Context) (string, error) {
-	IP := netaddr.MustParseIP(c.getIP(ctx))
-	ipBinary, err := IP.MarshalBinary()
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return "", err
+	}
+	ipBinary, err := netaddr.MustParseIP(ip).MarshalBinary()
 	if err != nil {
 		return "", err
 	}
@@ -35,7 +56,11 @@ func (c *Client) IPDecimal(ctx context.Context) (string, error) {
 }
 
 func (c *Client) asn(ctx context.Context) (uint, error) {
-	m, err := c.max.ASN(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return 0, err
+	}
+	m, err := c.max.ASN(ctx, net.ParseIP(ip))
 	if err != nil {
 		return 0, err
 	}
@@ -43,7 +68,11 @@ func (c *Client) asn(ctx context.Context) (uint, error) {
 }
 
 func (c *Client) asnOrganization(ctx context.Context) (string, error) {
-	m, err := c.max.ASN(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return "", err
+	}
+	m, err := c.max.ASN(ctx, net.ParseIP(ip))
 	if err != nil {
 		return "", nil
 	}
@@ -51,7 +80,11 @@ func (c *Client) asnOrganization(ctx context.Context) (string, error) {
 }
 
 func (c *Client) postal(ctx context.Context) (string, error) {
-	m, err := c.max.City(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return "", err
+	}
+	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
 		return "", nil
 	}
@@ -59,7 +92,11 @@ func (c *Client) postal(ctx context.Context) (string, error) {
 }
 
 func (c *Client) city(ctx context.Context) (string, error) {
-	m, err := c.max.City(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return "", err
+	}
+	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +104,11 @@ func (c *Client) city(ctx context.Context) (string, error) {
 }
 
 func (c *Client) coordinates(ctx context.Context) ([]float64, error) {
-	m, err := c.max.City(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
 		return nil, err
 	}
@@ -75,15 +116,24 @@ func (c *Client) coordinates(ctx context.Context) ([]float64, error) {
 }
 
 func (c *Client) country(ctx context.Context) (string, error) {
-	m, err := c.max.City(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
 	if err != nil {
 		return "", err
 	}
+	m, err := c.max.City(ctx, net.ParseIP(ip))
+	if err != nil {
+		return "", err
+	}
+
 	return m.Country.Names["en"], nil
 }
 
 func (c *Client) countryISO(ctx context.Context) (string, error) {
-	m, err := c.max.City(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return "", err
+	}
+	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
 		return "", nil
 	}
@@ -91,7 +141,11 @@ func (c *Client) countryISO(ctx context.Context) (string, error) {
 }
 
 func (c *Client) isEU(ctx context.Context) (bool, error) {
-	m, err := c.max.City(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return false, err
+	}
+	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
 		return false, nil
 	}
@@ -99,7 +153,11 @@ func (c *Client) isEU(ctx context.Context) (bool, error) {
 }
 
 func (c *Client) timezone(ctx context.Context) (string, error) {
-	m, err := c.max.City(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return "", err
+	}
+	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
 		return "", nil
 	}
@@ -107,7 +165,11 @@ func (c *Client) timezone(ctx context.Context) (string, error) {
 }
 
 func (c *Client) continent(ctx context.Context) (string, error) {
-	m, err := c.max.City(net.ParseIP(c.getIP(ctx)))
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return "", err
+	}
+	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
 		return "", nil
 	}
@@ -160,8 +222,18 @@ func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, 
 		return nil, err
 	}
 
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ua, err := c.ua(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &model.ReplyIPInformation{
-		IP:              c.getIP(ctx),
+		IP:              ip,
 		IPDecimal:       ipDecimal,
 		ASN:             asn,
 		ASNOrganization: asnOrg,
@@ -176,7 +248,7 @@ func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, 
 		Longitude:       coordinates[1],
 		Timezone:        tz,
 		Hostname:        "",
-		UserAgent:       c.ua(ctx),
+		UserAgent:       ua,
 		Continent:       continent,
 	}, nil
 }
@@ -227,8 +299,13 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 		return nil, err
 	}
 
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &model.ReplyLookUp{
-		IP:              c.getIP(ctx),
+		IP:              ip,
 		IPDecimal:       ipDecimal,
 		ASN:             asn,
 		ASNOrganization: asnOrg,
@@ -245,13 +322,4 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 		Hostname:        "",
 		Continent:       continent,
 	}, nil
-}
-
-func (c *Client) region(ctx context.Context) (string, error) {
-	//	m, err := c.max.City(net.IP(c.getRemoteIP(ctx)))
-	//	if err != nil {
-	//		return "", nil
-	//	}
-	return "", nil
-
 }

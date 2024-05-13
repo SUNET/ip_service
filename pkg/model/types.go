@@ -47,17 +47,3 @@ type ReplyLookUp struct {
 	Hostname        string  `json:"hostname"`
 	Continent       string  `json:"continent"`
 }
-
-type Maxmind struct {
-	ASN  MaxmindInformation `json:"asn"`
-	City MaxmindInformation `json:"city"`
-}
-
-type MaxmindInformation struct {
-	Version string `json:"version"`
-}
-
-type ReplyInfo struct {
-	MaxMind Maxmind `json:"maxmind"`
-	Started string  `json:"started"`
-}

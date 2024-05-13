@@ -4,16 +4,20 @@ import (
 	"context"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"ip_service/pkg/trace"
 	"strings"
 	"time"
 
 	"github.com/peterbourgon/diskv/v3"
 )
 
+// Service store service
 type Service struct {
-	cfg *model.Cfg
-	log *logger.Logger
-	KV  *KV
+	cfg        *model.Cfg
+	log        *logger.Log
+	TP         *trace.Tracer
+	KV         *KV
+	probeStore *model.StatusProbeStore
 }
 
 // KV key-value storage object
@@ -22,10 +26,12 @@ type KV struct {
 }
 
 // New creates a new instance of store
-func New(ctx context.Context, cfg *model.Cfg, log *logger.Logger) (*Service, error) {
+func New(ctx context.Context, cfg *model.Cfg, tp *trace.Tracer, log *logger.Log) (*Service, error) {
 	s := &Service{
-		cfg: cfg,
-		log: log,
+		cfg:        cfg,
+		log:        log,
+		TP:         tp,
+		probeStore: &model.StatusProbeStore{},
 	}
 
 	if err := s.newKV(ctx); err != nil {
@@ -54,7 +60,7 @@ func inverseTransform(pathKey *diskv.PathKey) (key string) {
 
 func (s *Service) newKV(ctx context.Context) error {
 	diskvClient := diskv.New(diskv.Options{
-		BasePath:          s.cfg.Store.File.Path,
+		BasePath:          s.cfg.IPService.Store.File.Path,
 		AdvancedTransform: advancedTransform,
 		InverseTransform:  inverseTransform,
 		CacheSizeMax:      1024 * 1024,
@@ -69,33 +75,29 @@ func (s *Service) newKV(ctx context.Context) error {
 	return nil
 }
 
-var (
-	nextRun    time.Time
-	lastStatus *model.StatusService
-)
-
-func (s *Service) Status(ctx context.Context) *model.StatusService {
-	if time.Now().After(nextRun) {
-		status := &model.StatusService{
-			ServiceName: "store",
-			Timestamp:   time.Now(),
-			Interval:    10 * time.Second,
-		}
-
-		if err := s.KV.statusTest(ctx); err != nil {
-			status.Message = err.Error()
-			return status
-		}
-
-		status.Healthy = true
-
-		nextRun = time.Now().Add(status.Interval)
-		lastStatus = status
-
-		return status
+// Status returns the status of the service
+func (s *Service) Status(ctx context.Context) *model.StatusProbe {
+	if time.Now().Before(s.probeStore.NextCheck) {
+		return s.probeStore.PreviousResult
 	}
 
-	return lastStatus
+	probe := &model.StatusProbe{
+		Name:          "kv",
+		Healthy:       true,
+		Message:       map[string]any{"status": "ok"},
+		LastCheckedTS: time.Now(),
+	}
+
+	if err := s.KV.statusTest(ctx); err != nil {
+		probe.Healthy = false
+		probe.Message["status"] = err.Error()
+
+	}
+
+	s.probeStore.PreviousResult = probe
+	s.probeStore.NextCheck = time.Now().Add(10 * time.Second)
+
+	return probe
 }
 
 // Close closes store service

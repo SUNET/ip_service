@@ -1,68 +1,80 @@
 package configuration
 
 import (
+	"context"
 	"fmt"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
 	"os"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
-	"gopkg.in/yaml.v3"
 )
 
-var mockConfig = []byte(`
----
-ip_service:
-  api_server:
-    host: :8080
-  redis:
-    db: 3
-    host: localhost:6379
-    sentinel_hosts:
-    #  - localhost:1231
-    #  - localhost:12313
-    sentinel_service_name: redis-cluster
-`)
-
 func TestParse(t *testing.T) {
-	t.SkipNow()
-	tempDir := t.TempDir()
 
 	tts := []struct {
 		name           string
 		setEnvVariable bool
+		want           *model.Cfg
 	}{
 		{
 			name:           "OK",
 			setEnvVariable: true,
+			want: &model.Cfg{
+				IPService: &model.IPService{
+					APIServer: model.APIServer{
+						Addr: ":8080",
+					},
+					Production: false,
+					HTTPProxy:  "",
+					Log:        model.Log{},
+					MaxMind: model.MaxMind{
+						AutomaticUpdate:   true,
+						UpdatePeriodicity: 10,
+						LicenseKey:        "",
+						Enterprise:        false,
+						RetryCounter:      0,
+						DB: map[string]model.MaxMindDB{
+							"asn": {
+								FilePath: "./db/GeoLite2-asn.mmdb",
+							},
+							"city": {
+								FilePath: "./db/GeoLite2-city.mmdb",
+							},
+						},
+					},
+					Store: model.Store{
+						File: model.FileStorage{
+							Path: "kv_store",
+						},
+					},
+					Tracing: model.Tracing{
+						Addr: "ip_service_jaeger:4318",
+					},
+				},
+			},
 		},
 	}
 
 	for _, tt := range tts {
-		path := fmt.Sprintf("%s/test.cfg", tempDir)
-		if err := os.WriteFile(path, mockConfig, 0666); err != nil {
-			assert.NoError(t, err)
-		}
-		if tt.setEnvVariable {
-			os.Setenv("CONFIG_YAML", path)
-		}
-
-		want := &model.Cfg{}
-		err := yaml.Unmarshal(mockConfig, want)
-		assert.NoError(t, err)
-
-		testLog := logger.Logger{
-			Logger: *zaptest.NewLogger(t, zaptest.Level(zap.PanicLevel)),
-		}
-
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := Parse(&testLog)
+			path := fmt.Sprintf("../../config.yaml")
+
+			if tt.setEnvVariable {
+				err := os.Setenv("CONFIG_YAML", path)
+				assert.NoError(t, err)
+			}
+
+			testLog := logger.NewSimple("test")
+			got, err := Parse(context.TODO(), testLog)
 			assert.NoError(t, err)
 
-			assert.Equal(t, &want, cfg)
+			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreFields(model.MaxMind{}, "LicenseKey")); diff != "" {
+				t.Errorf("diff: %s", diff)
+			}
 
 		})
 	}

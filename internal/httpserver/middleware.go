@@ -35,12 +35,11 @@ func (s *Service) middlewareLogger(ctx context.Context) gin.HandlerFunc {
 }
 
 func (s *Service) middlewareCrash(ctx context.Context) gin.HandlerFunc {
-	log := s.logger.New("http")
 	return func(c *gin.Context) {
 		defer func() {
 			if r := recover(); r != nil {
 				status := c.Writer.Status()
-				log.Error("crash", "error", r, "status", status, "url", c.Request.URL.Path, "method", c.Request.Method, "req-id", c.GetString("req-id"))
+				s.logger.Debug("crash", "status", status)
 				c.JSON(500, gin.H{"data": nil, "error": helpers.NewError("internal_server_error")})
 			}
 		}()

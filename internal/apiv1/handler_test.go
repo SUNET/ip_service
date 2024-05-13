@@ -4,9 +4,12 @@ import (
 	"context"
 	"ip_service/internal/maxmind"
 	"ip_service/internal/store"
+	"ip_service/pkg/contexthandler"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"ip_service/pkg/trace"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	ua "github.com/mileusna/useragent"
@@ -21,20 +24,37 @@ const (
 )
 
 func mockClient(t *testing.T) *Client {
-	dbCity, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-City-Test.mmdb"))
+	dbCity, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-city-Test.mmdb"))
 	assert.NoError(t, err)
 
-	dbASN, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-ASN-Test.mmdb"))
+	dbASN, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-asn-Test.mmdb"))
 	assert.NoError(t, err)
+
+	tracer, err := trace.NoTracing(context.TODO())
+	assert.NoError(t, err)
+
+	log := logger.NewSimple("testing")
 
 	c := &Client{
 		config: &model.Cfg{},
-		logger: &logger.Logger{},
+		log:    log,
+		tp:     tracer,
 		max: &maxmind.Service{
 			DBCity: dbCity,
 			DBASN:  dbASN,
+			TP:     tracer,
+			DBMeta: map[string]*maxmind.DBObject{
+				"city": {
+					MU: sync.RWMutex{},
+				},
+				"asn": {
+					MU: sync.RWMutex{},
+				},
+			},
 		},
-		store: &store.Service{},
+		store: &store.Service{
+			TP: tracer,
+		},
 	}
 
 	return c
@@ -43,19 +63,22 @@ func mockClient(t *testing.T) *Client {
 func TestIPText(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want string
 	}{
 		{
 			name: "OK",
-			have: "127.0.0.1",
+			have: &contexthandler.RequestContext{
+				ClientIP: "127.0.0.1",
+			},
 			want: "127.0.0.1",
 		},
 	}
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := context.Background()
+			ctx = contexthandler.Add(ctx, "request", tt.have)
 			client := mockClient(t)
 			got, err := client.IPText(ctx)
 			assert.NoError(t, err)
@@ -67,13 +90,15 @@ func TestIPText(t *testing.T) {
 func TestIPJSON(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want map[string]interface{}
 	}{
 		{
 			name: "OK",
-			have: "127.0.0.1",
-			want: map[string]interface{}{
+			have: &contexthandler.RequestContext{
+				ClientIP: "127.0.0.1",
+			},
+			want: map[string]any{
 				"ip": "127.0.0.1",
 			},
 		},
@@ -81,7 +106,7 @@ func TestIPJSON(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.IPJSON(ctx)
 			assert.NoError(t, err)
@@ -93,19 +118,21 @@ func TestIPJSON(t *testing.T) {
 func TestCountryText(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want string
 	}{
 		{
 			name: "OK",
-			have: mockIP,
+			have: &contexthandler.RequestContext{
+				ClientIP: mockIP,
+			},
 			want: "Sweden",
 		},
 	}
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.CountryText(ctx)
 			assert.NoError(t, err)
@@ -117,13 +144,15 @@ func TestCountryText(t *testing.T) {
 func TestCountryJSON(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
-		want map[string]interface{}
+		have *contexthandler.RequestContext
+		want map[string]any
 	}{
 		{
 			name: "OK",
-			have: mockIP,
-			want: map[string]interface{}{
+			have: &contexthandler.RequestContext{
+				ClientIP: mockIP,
+			},
+			want: map[string]any{
 				"country": "Sweden",
 			},
 		},
@@ -131,7 +160,7 @@ func TestCountryJSON(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.CountryJSON(ctx)
 			assert.NoError(t, err)
@@ -143,19 +172,21 @@ func TestCountryJSON(t *testing.T) {
 func TestASNText(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want uint
 	}{
 		{
 			name: "OK",
-			have: mockISP,
+			have: &contexthandler.RequestContext{
+				ClientIP: mockISP,
+			},
 			want: 29518,
 		},
 	}
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.ASNText(ctx)
 			assert.NoError(t, err)
@@ -167,13 +198,15 @@ func TestASNText(t *testing.T) {
 func TestASNJSON(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want map[string]interface{}
 	}{
 		{
 			name: "OK",
-			have: mockISP,
-			want: map[string]interface{}{
+			have: &contexthandler.RequestContext{
+				ClientIP: mockISP,
+			},
+			want: map[string]any{
 				"asn": uint(29518),
 			},
 		},
@@ -181,7 +214,7 @@ func TestASNJSON(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.ASNJSON(ctx)
 			assert.NoError(t, err)
@@ -193,19 +226,21 @@ func TestASNJSON(t *testing.T) {
 func TestCountryISOText(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want string
 	}{
 		{
 			name: "OK",
-			have: mockIP,
+			have: &contexthandler.RequestContext{
+				ClientIP: mockIP,
+			},
 			want: "SE",
 		},
 	}
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.CountryISOText(ctx)
 			assert.NoError(t, err)
@@ -217,12 +252,14 @@ func TestCountryISOText(t *testing.T) {
 func TestCountryISOJSON(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want map[string]interface{}
 	}{
 		{
 			name: "OK",
-			have: mockIP,
+			have: &contexthandler.RequestContext{
+				ClientIP: mockIP,
+			},
 			want: map[string]interface{}{
 				"country_iso": "SE",
 			},
@@ -231,7 +268,7 @@ func TestCountryISOJSON(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.CountryISOJSON(ctx)
 			assert.NoError(t, err)
@@ -243,19 +280,21 @@ func TestCountryISOJSON(t *testing.T) {
 func TestCoordinatesText(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want []float64
 	}{
 		{
 			name: "OK",
-			have: mockIP,
+			have: &contexthandler.RequestContext{
+				ClientIP: mockIP,
+			},
 			want: []float64{62, 15},
 		},
 	}
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.CoordinatesText(ctx)
 			assert.NoError(t, err)
@@ -267,14 +306,16 @@ func TestCoordinatesText(t *testing.T) {
 func TestCoordinatesJSON(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
-		want map[string]interface{}
+		have *contexthandler.RequestContext
+		want map[string]any
 	}{
 		{
 			name: "OK",
-			have: mockIP,
-			want: map[string]interface{}{
-				"coordinates": map[string]interface{}{
+			have: &contexthandler.RequestContext{
+				ClientIP: mockIP,
+			},
+			want: map[string]any{
+				"coordinates": map[string]any{
 					"lat":  float64(62),
 					"long": float64(15),
 				},
@@ -284,7 +325,7 @@ func TestCoordinatesJSON(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
+			ctx := contexthandler.Add(context.TODO(), "request", tt.have)
 			client := mockClient(t)
 			got, err := client.CoordinatesJSON(ctx)
 			assert.NoError(t, err)
@@ -296,12 +337,15 @@ func TestCoordinatesJSON(t *testing.T) {
 func TestAllJSON(t *testing.T) {
 	tts := []struct {
 		name string
-		have string
+		have *contexthandler.RequestContext
 		want *model.ReplyIPInformation
 	}{
 		{
 			name: "OK - IP",
-			have: mockIP,
+			have: &contexthandler.RequestContext{
+				ClientIP:  mockIP,
+				UserAgent: mockUserAgent,
+			},
 			want: &model.ReplyIPInformation{
 				IP:              mockIP,
 				IPDecimal:       "55842184228483496777582744539513225216",
@@ -319,6 +363,11 @@ func TestAllJSON(t *testing.T) {
 				Timezone:        "Europe/Stockholm",
 				Hostname:        "",
 				UserAgent: ua.UserAgent{
+					VersionNo: ua.VersionNo{
+						Major: 5,
+						Minor: 15,
+						Patch: 2,
+					},
 					Name:      "QtWebEngine",
 					Version:   "5.15.2",
 					OS:        "Linux",
@@ -336,13 +385,21 @@ func TestAllJSON(t *testing.T) {
 		},
 		{
 			name: "OK - ASN",
-			have: mockISP,
+			have: &contexthandler.RequestContext{
+				ClientIP:  mockISP,
+				UserAgent: mockUserAgent,
+			},
 			want: &model.ReplyIPInformation{
 				IP:              mockISP,
 				IPDecimal:       "1503657984",
 				ASN:             29518,
 				ASNOrganization: "Bredband2 AB",
 				UserAgent: ua.UserAgent{
+					VersionNo: ua.VersionNo{
+						Major: 5,
+						Minor: 15,
+						Patch: 2,
+					},
 					Name:      "QtWebEngine",
 					Version:   "5.15.2",
 					OS:        "Linux",
@@ -361,8 +418,8 @@ func TestAllJSON(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.TODO(), "ip", tt.have)
-			ctx = context.WithValue(ctx, "ua", mockUserAgent)
+			ctx := context.TODO()
+			ctx = contexthandler.Add(ctx, "request", tt.have)
 
 			client := mockClient(t)
 			got, err := client.AllJSON(ctx)

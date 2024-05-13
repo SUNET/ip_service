@@ -1,7 +1,5 @@
 db/*
-bin/
-store/
-.vscode/*
+kv_store/
 !.vscode/settings.json
 !/internal/store/
-dev-config*
+config.yaml

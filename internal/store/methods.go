@@ -31,6 +31,9 @@ func (s *KV) Get(ctx context.Context, k string) string {
 func (s *KV) GetRemoteVersion(ctx context.Context, k string) string {
 	return s.File.ReadString(strings.Join([]string{k, "remote_version"}, "/"))
 }
+func (s *KV) GetLastChecked(ctx context.Context, k string) string {
+	return s.File.ReadString(strings.Join([]string{k, "last_checked"}, "/"))
+}
 
 func (s *KV) Del(ctx context.Context, k string) error {
 	return s.File.Erase(k)
@@ -41,7 +44,7 @@ func (s *KV) statusTest(ctx context.Context) error {
 		return err
 	}
 	if get := s.Get(ctx, "testK"); get != "testV" {
-		return errors.New("Can't find key")
+		return errors.New("can't find key")
 	}
 	if err := s.Del(ctx, "testK"); err != nil {
 		return err

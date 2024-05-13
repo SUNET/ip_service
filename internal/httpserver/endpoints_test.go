@@ -6,17 +6,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"ip_service/internal/apiv1"
 	"ip_service/internal/maxmind"
+	"ip_service/pkg/contexthandler"
 	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
+	"ip_service/pkg/trace"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-cmp/cmp"
@@ -77,71 +80,44 @@ func mockHTMLTemplate(t *testing.T) string {
 }
 
 func mockService(t *testing.T) *Service {
-	dbCity, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-City-Test.mmdb"))
+	dbCity, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-city-Test.mmdb"))
 	assert.NoError(t, err)
 
-	dbASN, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-ASN-Test.mmdb"))
+	dbASN, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-asn-Test.mmdb"))
 	assert.NoError(t, err)
+
+	tracer, err := trace.NoTracing(context.TODO())
+	assert.NoError(t, err)
+
 	maxmind := &maxmind.Service{
 		DBCity: dbCity,
 		DBASN:  dbASN,
+		TP:     tracer,
+		DBMeta: map[string]*maxmind.DBObject{
+			"city": {
+				MU: sync.RWMutex{},
+			},
+			"asn": {
+				MU: sync.RWMutex{},
+			},
+		},
 	}
-	apiv1, err := apiv1.New(context.TODO(), maxmind, nil, nil, logger.New("test-api", false))
+
+	apiv1, err := apiv1.New(context.TODO(), maxmind, nil, nil, tracer, logger.NewSimple("test-api"))
 	assert.NoError(t, err)
 
 	s := &Service{
 		config: &model.Cfg{},
-		logger: &logger.Logger{},
-		server: &http.Server{},
-		apiv1:  apiv1,
-		gin:    &gin.Engine{},
+		logger: &logger.Log{},
+		TP:     tracer,
+		server: &http.Server{
+			ReadHeaderTimeout: 1 * time.Second,
+		},
+		apiv1: apiv1,
+		gin:   &gin.Engine{},
 	}
 
 	return s
-}
-
-func TestNegotiateContentType(t *testing.T) {
-	tts := []struct {
-		name string
-		have string
-		want string
-	}{
-		{
-			name: "webbrowser",
-			have: mockAcceptHeader,
-			want: gin.MIMEHTML,
-		},
-		{
-			name: "empty",
-			have: "",
-			want: "*/*",
-		},
-		{
-			name: "plain",
-			have: gin.MIMEPlain,
-			want: gin.MIMEPlain,
-		},
-		{
-			name: "json",
-			have: gin.MIMEJSON,
-			want: gin.MIMEJSON,
-		},
-	}
-
-	for _, tt := range tts {
-		t.Run(tt.name, func(t *testing.T) {
-			service := mockService(t)
-			c, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c.Request = &http.Request{
-				Header: make(http.Header),
-				URL:    &url.URL{},
-			}
-			c.Request.Header.Set("Accept", tt.have)
-
-			got := service.negotiateContentType(context.TODO(), c)
-			assert.Equal(t, tt.want, got)
-		})
-	}
 }
 
 func (s *Service) mockEndpointIndexPlain(c *gin.Context) {
@@ -149,15 +125,10 @@ func (s *Service) mockEndpointIndexPlain(c *gin.Context) {
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v", reply))
-}
-
-func (s *Service) mockEndpointIndexNewline(c *gin.Context) {
-	reply, err := s.endpointIndex(context.TODO(), c)
+	_, err = c.Writer.WriteString(fmt.Sprintf("%v", reply))
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v\n", reply))
 }
 
 func (s *Service) mockEndpointIndexJSON(c *gin.Context) {
@@ -181,15 +152,10 @@ func (s *Service) mockEndpointCityPlain(c *gin.Context) {
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%s", reply))
-}
-
-func (s *Service) mockEndpointCityNewline(c *gin.Context) {
-	reply, err := s.endpointCity(context.TODO(), c)
+	_, err = c.Writer.WriteString(fmt.Sprintf("%s", reply))
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v\n", reply))
 }
 
 func (s *Service) mockEndpointCityJSON(c *gin.Context) {
@@ -205,15 +171,10 @@ func (s *Service) mockEndpointCountryPlain(c *gin.Context) {
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%s", reply))
-}
-
-func (s *Service) mockEndpointCountryNewline(c *gin.Context) {
-	reply, err := s.endpointCountry(context.TODO(), c)
+	_, err = c.Writer.WriteString(fmt.Sprintf("%s", reply))
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v\n", reply))
 }
 
 func (s *Service) mockEndpointCountryJSON(c *gin.Context) {
@@ -229,15 +190,10 @@ func (s *Service) mockEndpointCountryISOPlain(c *gin.Context) {
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%s", reply))
-}
-
-func (s *Service) mockEndpointCountryISONewline(c *gin.Context) {
-	reply, err := s.endpointCountryISO(context.TODO(), c)
+	_, err = c.Writer.WriteString(fmt.Sprintf("%s", reply))
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v\n", reply))
 }
 
 func (s *Service) mockEndpointCountryISOJSON(c *gin.Context) {
@@ -253,15 +209,10 @@ func (s *Service) mockEndpointASNPlain(c *gin.Context) {
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v", reply))
-}
-
-func (s *Service) mockEndpointASNNewline(c *gin.Context) {
-	reply, err := s.endpointASN(context.TODO(), c)
+	_, err = c.Writer.WriteString(fmt.Sprintf("%v", reply))
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v\n", reply))
 }
 
 func (s *Service) mockEndpointASNJSON(c *gin.Context) {
@@ -277,15 +228,10 @@ func (s *Service) mockEndpointCoordinatesPlain(c *gin.Context) {
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v", reply))
-}
-
-func (s *Service) mockEndpointCoordinatesNewline(c *gin.Context) {
-	reply, err := s.endpointCoordinates(context.TODO(), c)
+	_, err = c.Writer.WriteString(fmt.Sprintf("%v", reply))
 	if err != nil {
 		panic(err)
 	}
-	c.Writer.WriteString(fmt.Sprintf("%v\n", reply))
 }
 
 func (s *Service) mockEndpointCoordinatesJSON(c *gin.Context) {
@@ -299,216 +245,195 @@ func (s *Service) mockEndpointCoordinatesJSON(c *gin.Context) {
 func TestEndpoints(t *testing.T) {
 	service := mockService(t)
 	type have struct {
-		ip          string
-		path        string
-		mimeType    string
-		userAgent   string
-		httpHandler func(c *gin.Context)
+		path           string
+		requestContext *contexthandler.RequestContext
+		httpHandler    func(c *gin.Context)
 	}
 	tts := []struct {
+		name string
 		have have
-		want interface{}
+		want any
 	}{
 		{
+			name: "index/plain",
 			have: have{
-				ip:          mockIPWithPort,
-				path:        "/",
-				mimeType:    gin.MIMEPlain,
-				userAgent:   mockUserAgent,
+				path: "/",
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					LookupIP:  "",
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				httpHandler: service.mockEndpointIndexPlain,
 			},
 			want: mockIP,
 		},
 		{
+			name: "index/json",
 			have: have{
-				ip:          mockIPWithPort,
-				path:        "/",
-				mimeType:    "*/*",
-				userAgent:   mockUserAgent,
-				httpHandler: service.mockEndpointIndexNewline,
-			},
-			want: fmt.Sprintf("%v\n", mockIP),
-		},
-		{
-			have: have{
-				ip:          mockIPWithPort,
-				path:        "/",
-				mimeType:    gin.MIMEJSON,
-				userAgent:   mockUserAgent,
+				path: "/",
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				httpHandler: service.mockEndpointIndexJSON,
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"ip": mockIP,
 			},
 		},
 		{
+			name: "index/html",
 			have: have{
-				ip:          mockIPWithPort,
-				path:        "/",
-				mimeType:    gin.MIMEHTML,
-				userAgent:   mockUserAgent,
+				path: "/",
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				httpHandler: service.mockEndpointIndexHTML,
 			},
 			want: mockHTMLTemplate(t),
 		},
 		{
+			name: "city/plain",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/city",
-				mimeType:    gin.MIMEPlain,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCityPlain,
 			},
 			want: "Linköping",
 		},
 		{
+			name: "city/json",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/city",
-				mimeType:    "*/*",
-				userAgent:   mockUserAgent,
-				httpHandler: service.mockEndpointCityNewline,
-			},
-			want: fmt.Sprintf("%v\n", "Linköping"),
-		},
-		{
-			have: have{
-				ip:          mockIPWithPort,
-				path:        "/city",
-				mimeType:    gin.MIMEJSON,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCityJSON,
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"city": "Linköping",
 			},
 		},
 		{
+			name: "city/plain",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/country",
-				mimeType:    gin.MIMEPlain,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCountryPlain,
 			},
 			want: "Sweden",
 		},
 		{
+			name: "country/json",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/country",
-				mimeType:    "*/*",
-				userAgent:   mockUserAgent,
-				httpHandler: service.mockEndpointCountryNewline,
-			},
-			want: fmt.Sprintf("%v\n", "Sweden"),
-		},
-		{
-			have: have{
-				ip:          mockIPWithPort,
-				path:        "/country",
-				mimeType:    gin.MIMEJSON,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCountryJSON,
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"country": "Sweden",
 			},
 		},
 		{
+			name: "countryISO/plain",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/country-iso",
-				mimeType:    gin.MIMEPlain,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCountryISOPlain,
 			},
 			want: "SE",
 		},
 		{
+			name: "countryISO/json",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/country-iso",
-				mimeType:    "*/*",
-				userAgent:   mockUserAgent,
-				httpHandler: service.mockEndpointCountryISONewline,
-			},
-			want: fmt.Sprintf("%v\n", "SE"),
-		},
-		{
-			have: have{
-				ip:          mockIPWithPort,
-				path:        "/country-iso",
-				mimeType:    gin.MIMEJSON,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCountryISOJSON,
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"country_iso": "SE",
 			},
 		},
 		{
+			name: "ASN/plain",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/asn",
-				mimeType:    gin.MIMEPlain,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointASNPlain,
 			},
 			want: fmt.Sprintf("%v", "29518"),
 		},
 		{
+			name: "ASN/json",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/asn",
-				mimeType:    "*/*",
-				userAgent:   mockUserAgent,
-				httpHandler: service.mockEndpointASNNewline,
-			},
-			want: fmt.Sprintf("%v\n", "29518"),
-		},
-		{
-			have: have{
-				ip:          mockIPWithPort,
-				path:        "/asn",
-				mimeType:    gin.MIMEJSON,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointASNJSON,
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"asn": float64(29518),
 			},
 		},
 		{
+			name: "coordinate/plain",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/coordinates",
-				mimeType:    gin.MIMEPlain,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCoordinatesPlain,
 			},
 			want: fmt.Sprintf("%v", []float64{58.4167, 15.6167}),
 		},
 		{
+			name: "coordinate/json",
 			have: have{
-				ip:          mockIPWithPort,
+				requestContext: &contexthandler.RequestContext{
+					ClientIP:  mockIPWithPort,
+					UserAgent: mockUserAgent,
+					Accept:    mockAcceptHeader,
+				},
 				path:        "/coordinates",
-				mimeType:    "*/*",
-				userAgent:   mockUserAgent,
-				httpHandler: service.mockEndpointCoordinatesNewline,
-			},
-			want: fmt.Sprintf("%v\n", []float64{58.4167, 15.6167}),
-		},
-		{
-			have: have{
-				ip:          mockIPWithPort,
-				path:        "/coordinates",
-				mimeType:    gin.MIMEJSON,
-				userAgent:   mockUserAgent,
 				httpHandler: service.mockEndpointCoordinatesJSON,
 			},
-			want: map[string]interface{}{
-				"coordinates": map[string]interface{}{
+			want: map[string]any{
+				"coordinates": map[string]any{
 					"lat":  float64(58.4167),
 					"long": float64(15.6167),
 				},
@@ -517,7 +442,7 @@ func TestEndpoints(t *testing.T) {
 	}
 
 	for _, tt := range tts {
-		t.Run(fmt.Sprintf("%q --> %q", tt.have.path, tt.have.mimeType), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
 
 			r := gin.Default()
@@ -529,19 +454,19 @@ func TestEndpoints(t *testing.T) {
 			req, err := http.NewRequest("GET", tt.have.path, nil)
 			assert.NoError(t, err)
 
-			req.Header.Set("user-agent", tt.have.userAgent)
-			req.Header.Set("Accept", tt.have.mimeType)
-			req.RemoteAddr = tt.have.ip
+			req.Header.Set("user-agent", tt.have.requestContext.UserAgent)
+			req.Header.Set("Accept", tt.have.requestContext.Accept)
+			req.RemoteAddr = tt.have.requestContext.ClientIP
 
 			w := httptest.NewRecorder()
 
 			r.ServeHTTP(w, req)
-			got, err := ioutil.ReadAll(w.Body)
+			got, err := io.ReadAll(w.Body)
 			assert.NoError(t, err)
 
-			switch tt.have.mimeType {
+			switch tt.have.requestContext.Accept {
 			case gin.MIMEJSON:
-				v := map[string]interface{}{}
+				v := map[string]any{}
 				err := json.Unmarshal(got, &v)
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, v)
@@ -549,12 +474,7 @@ func TestEndpoints(t *testing.T) {
 			case gin.MIMEPlain:
 				assert.Equal(t, tt.want, string(got))
 
-			case "*/*":
-				if diff := cmp.Diff(tt.want, string(got)); diff != "" {
-					t.Errorf("mismatch (-want +got):\n%s", diff)
-				}
-
-			case gin.MIMEHTML:
+			case "*/*", gin.MIMEHTML:
 				if diff := cmp.Diff(tt.want, string(got)); diff != "" {
 					t.Errorf("mismatch (-want +got):\n%s", diff)
 				}

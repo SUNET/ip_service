@@ -4,23 +4,34 @@ version: '3.4'
 services:
   ip_service:
     image: docker.sunet.se/ip_service:latest
-    #image: ip_service:latest
+    container_name: ip_service
     networks:
       ip_service_net:
         ipv4_address: 172.16.20.250
     ports:
       - 8080:8080
     volumes:
-      - ./dev-config-docker.yaml:/tmp/config.yaml:ro
+      - ./config.yaml:/tmp/config.yaml:ro
       - ./templates/:/templates:ro
       - ./assets/:/assets:ro
-      - ip_servicedata:/db
+      - ./db:/db
+      - ./kv_store:/kv_store
     environment:
       - CONFIG_YAML=/tmp/config.yaml
 
-volumes:
-  ip_servicedata:
-    name: ip_servicedat
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: ip_service_jaeger
+    restart: always
+    expose:
+      - 16686
+      - 4317
+      - 4318
+    networks:
+      ip_service_net:
+        ipv4_address: 172.16.20.100
+    environment:
+      - "COLLECTOR_OTLP_ENABLED=true"
 
 networks:
   ip_service_net:
@@ -31,3 +42,6 @@ networks:
       driver: default
       config:
         - subnet: 172.16.20.0/24
+
+volumes:
+  ip_service_data:
