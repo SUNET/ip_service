@@ -127,9 +127,6 @@ github.com/leodido/go-urn/scim/schema
 # github.com/lithammer/shortuuid/v4 v4.0.0
 ## explicit; go 1.13
 github.com/lithammer/shortuuid/v4
-# github.com/masv3971/goladok3 v0.0.78
-## explicit; go 1.18
-github.com/masv3971/goladok3/ladoktypes
 # github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
 github.com/mattn/go-isatty

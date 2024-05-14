@@ -12,7 +12,6 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lithammer/shortuuid/v4 v4.0.0
-	github.com/masv3971/goladok3 v0.0.78
 	github.com/mileusna/useragent v1.3.4
 	github.com/moogar0880/problems v0.1.1
 	github.com/oschwald/geoip2-golang v1.9.0
