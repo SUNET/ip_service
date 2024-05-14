@@ -4,11 +4,6 @@ import (
 	ua "github.com/mileusna/useragent"
 )
 
-type (
-	ContextIP        string
-	ContextUserAgent string
-)
-
 type ReplyIPInformation struct {
 	IP              string       `json:"ip"`
 	IPDecimal       string       `json:"ip_decimal"`
@@ -18,6 +13,7 @@ type ReplyIPInformation struct {
 	Country         string       `json:"country"`
 	CountryISO      string       `json:"country_iso"`
 	IsEU            bool         `json:"is_eu"`
+	Is1918Network   bool         `json:"is_1918_network"`
 	Region          string       `json:"region"`
 	RegionCode      string       `json:"region_code"`
 	PostalCode      string       `json:"postal_code"`
@@ -38,6 +34,7 @@ type ReplyLookUp struct {
 	Country         string  `json:"country"`
 	CountryISO      string  `json:"country_iso"`
 	IsEU            bool    `json:"is_eu"`
+	Is1918Network   bool    `json:"is_1918_network"`
 	Region          string  `json:"region"`
 	RegionCode      string  `json:"region_code"`
 	PostalCode      string  `json:"postal_code"`

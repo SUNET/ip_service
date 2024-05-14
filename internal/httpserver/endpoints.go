@@ -26,6 +26,7 @@ func (s *Service) endpointIndex(ctx context.Context, c *gin.Context) (any, error
 		if err != nil {
 			return nil, err
 		}
+		s.metrics.EndpointIndexPLAINCounter.Inc()
 		return reply, nil
 
 	case gin.MIMEJSON:
@@ -34,6 +35,7 @@ func (s *Service) endpointIndex(ctx context.Context, c *gin.Context) (any, error
 		if err != nil {
 			return nil, err
 		}
+		s.metrics.EndpointIndexJSONCounter.Inc()
 		return reply, nil
 
 	case gin.MIMEHTML:
@@ -42,6 +44,7 @@ func (s *Service) endpointIndex(ctx context.Context, c *gin.Context) (any, error
 		if err != nil {
 			return nil, err
 		}
+		s.metrics.EndpointIndexHTMLCounter.Inc()
 		return reply, nil
 	}
 
@@ -56,6 +59,8 @@ func (s *Service) endpointCity(ctx context.Context, c *gin.Context) (any, error)
 	if err != nil {
 		return nil, err
 	}
+
+	s.metrics.EndpointCityCounter.Inc()
 
 	switch contextRequest.Accept {
 	case gin.MIMEJSON, gin.MIMEHTML:
@@ -82,6 +87,8 @@ func (s *Service) endpointCountry(ctx context.Context, c *gin.Context) (any, err
 		return nil, err
 	}
 
+	s.metrics.EndpointCountryCounter.Inc()
+
 	switch contextRequest.Accept {
 	case gin.MIMEJSON, gin.MIMEHTML:
 		reply, err := s.apiv1.CountryJSON(ctx)
@@ -106,6 +113,8 @@ func (s *Service) endpointCountryISO(ctx context.Context, c *gin.Context) (any, 
 	if err != nil {
 		return nil, err
 	}
+
+	s.metrics.EndpointCountryISOCounter.Inc()
 
 	switch contextRequest.Accept {
 	case gin.MIMEJSON, gin.MIMEHTML:
@@ -132,6 +141,8 @@ func (s *Service) endpointASN(ctx context.Context, c *gin.Context) (any, error) 
 		return nil, err
 	}
 
+	s.metrics.EndpointASNCounter.Inc()
+
 	switch contextRequest.Accept {
 	case gin.MIMEJSON, gin.MIMEHTML:
 		reply, err := s.apiv1.ASNJSON(ctx)
@@ -156,6 +167,8 @@ func (s *Service) endpointCoordinates(ctx context.Context, c *gin.Context) (any,
 	if err != nil {
 		return nil, err
 	}
+
+	s.metrics.EndpointCoordinatesCounter.Inc()
 
 	switch contextRequest.Accept {
 	case gin.MIMEJSON, gin.MIMEHTML:
@@ -182,6 +195,7 @@ func (s *Service) endpointAll(ctx context.Context, c *gin.Context) (any, error) 
 	if err != nil {
 		return nil, err
 	}
+	s.metrics.EndpointAllCounter.Inc()
 	return reply, nil
 }
 
@@ -198,10 +212,11 @@ func (s *Service) endpointLookUpIP(ctx context.Context, c *gin.Context) (any, er
 	if err != nil {
 		return nil, err
 	}
+	s.metrics.EndpointLookUpIPCounter.Inc()
 	return reply, nil
 }
 
-func (s *Service) endpointStatus(ctx context.Context, c *gin.Context) (any, error) {
+func (s *Service) endpointHealth(ctx context.Context, c *gin.Context) (any, error) {
 	ctx, span := s.TP.Start(ctx, "httpserver:endpointStatus")
 	defer span.End()
 
@@ -209,5 +224,6 @@ func (s *Service) endpointStatus(ctx context.Context, c *gin.Context) (any, erro
 	if err != nil {
 		return nil, err
 	}
+	s.metrics.HealthCounter.Inc()
 	return reply, nil
 }

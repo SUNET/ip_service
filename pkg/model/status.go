@@ -26,19 +26,19 @@ var (
 	// BuildVariableGitCommit contains ldflags -X variable git commit hash
 	BuildVariableGitCommit string = "undef"
 
-	// BuildVariableTimestamp contains ldsflags -X variable build time
+	// BuildVariableTimestamp contains ldflags -X variable build time
 	BuildVariableTimestamp string = "undef"
 
-	// BuildVariableGoVersion contains ldsflags -X variable go build version
+	// BuildVariableGoVersion contains ldflags -X variable go build version
 	BuildVariableGoVersion string = "undef"
 
-	// BuildVariableGoArch contains ldsflags -X variable go arch build
+	// BuildVariableGoArch contains ldflags -X variable go arch build
 	BuildVariableGoArch string = "undef"
 
-	// BuildVariableGitBranch contains ldsflags -X variable git branch
+	// BuildVariableGitBranch contains ldflags -X variable git branch
 	BuildVariableGitBranch string = "undef"
 
-	// BuildVersion contains ldsflags -X variable build version
+	// BuildVersion contains ldflags -X variable build version
 	BuildVersion string = "undef"
 )
 

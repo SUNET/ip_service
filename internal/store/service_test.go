@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func mockConfig(t *testing.T, storePath string) *model.Cfg {
+func mockConfig(storePath string) *model.Cfg {
 	cfg := &model.Cfg{
 		IPService: &model.IPService{
 			APIServer: model.APIServer{
@@ -38,7 +38,7 @@ func mockConfig(t *testing.T, storePath string) *model.Cfg {
 func mockNew(t *testing.T, dir string) *Service {
 	ctx := context.TODO()
 	storePath := filepath.Join(dir, "store")
-	cfg := mockConfig(t, storePath)
+	cfg := mockConfig(storePath)
 
 	tp, err := trace.New(ctx, cfg, logger.NewSimple("test"), "test", "test")
 	assert.NoError(t, err)
@@ -71,33 +71,42 @@ func TestGet(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
+	type have struct {
+		key   string
+		value string
+	}
 	tts := []struct {
 		name string
-		have string
+		have have
 		want string
 	}{
 		{
-			name: "OK",
+			name: "1",
+			have: have{
+				key:   "key/key",
+				value: "value1",
+			},
+			want: "value1",
+		},
+		{
+			name: "2",
+			have: have{
+				key:   "key/key/key",
+				value: "value2",
+			},
+			want: "value2",
 		},
 	}
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test function
 			tempDir := t.TempDir()
 			s := mockNew(t, tempDir)
-			err := s.KV.Set(context.TODO(), "mura/mura", "muuu")
+			err := s.KV.Set(context.TODO(), tt.have.key, tt.have.value)
 			assert.NoError(t, err)
 
-			got := s.KV.Get(context.TODO(), "mura/mura")
-			assert.Equal(t, "muuu", got)
-
-			err = s.KV.Set(context.TODO(), "mura/mura/mura", "kalle")
-			assert.NoError(t, err)
-
-			got = s.KV.Get(context.TODO(), "mura/mura/mura")
-			assert.Equal(t, "kalle", got)
-
+			got := s.KV.Get(context.TODO(), tt.have.key)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -17,8 +17,10 @@
         "kelseyhightower",
         "KHTML",
         "kula",
+        "ldflags",
         "Linköping",
         "lithammer",
+        "logr",
         "maxmind",
         "mileusna",
         "MIMEHTML",
@@ -34,6 +36,8 @@
         "otlptracehttp",
         "peterbourgon",
         "progressbar",
+        "promauto",
+        "promhttp",
         "schollz",
         "sdktrace",
         "semconv",
@@ -43,6 +47,7 @@
         "Typeflag",
         "useragent",
         "webbrowser",
-        "webp"
+        "webp",
+        "zapr"
     ]
 }

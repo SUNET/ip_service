@@ -152,6 +152,14 @@ func (c *Client) isEU(ctx context.Context) (bool, error) {
 	return m.Country.IsInEuropeanUnion, nil
 }
 
+func (c *Client) is1918Network(ctx context.Context) (bool, error) {
+	ip, err := c.getIP(ctx)
+	if err != nil {
+		return false, err
+	}
+	return net.ParseIP(ip).IsPrivate(), nil
+}
+
 func (c *Client) timezone(ctx context.Context) (string, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
@@ -205,6 +213,10 @@ func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, 
 	if err != nil {
 		return nil, err
 	}
+	network1918, err := c.is1918Network(ctx)
+	if err != nil {
+		return nil, err
+	}
 	postal, err := c.postal(ctx)
 	if err != nil {
 		return nil, err
@@ -241,6 +253,7 @@ func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, 
 		Country:         country,
 		CountryISO:      countryISO,
 		IsEU:            eu,
+		Is1918Network:   network1918,
 		Region:          "",
 		RegionCode:      "",
 		PostalCode:      postal,
@@ -282,6 +295,10 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 	if err != nil {
 		return nil, err
 	}
+	network1918, err := c.is1918Network(ctx)
+	if err != nil {
+		return nil, err
+	}
 	postal, err := c.postal(ctx)
 	if err != nil {
 		return nil, err
@@ -313,6 +330,7 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 		Country:         country,
 		CountryISO:      countryISO,
 		IsEU:            eu,
+		Is1918Network:   network1918,
 		Region:          "",
 		RegionCode:      "",
 		PostalCode:      postal,

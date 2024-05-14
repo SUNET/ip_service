@@ -1,8 +1,5 @@
 .PHONY: update clean build build-all run package deploy test authors dist
 
-NAME 					:= ip_service
-LDFLAGS                 := -ldflags "-w -s --extldflags '-static'"
-
 gosec:
 	$(info Run gosec)
 	gosec -color -nosec -tests ./...

@@ -11,7 +11,7 @@ services:
     ports:
       - 8080:8080
     volumes:
-      - ./config.yaml:/tmp/config.yaml:ro
+      - ./configfiles/ip_service.yaml:/tmp/config.yaml:ro
       - ./templates/:/templates:ro
       - ./assets/:/assets:ro
       - ./db:/db
@@ -33,6 +33,36 @@ services:
     environment:
       - "COLLECTOR_OTLP_ENABLED=true"
 
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - 9090:9090
+    networks:
+      ip_service_net:
+        ipv4_address: 172.16.20.12
+    restart: unless-stopped
+    volumes:
+      - ./configfiles/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    networks:
+      ip_service_net:
+        ipv4_address: 172.16.20.13
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+    volumes:
+      - ./configfiles/grafana:/etc/grafana/provisioning/datasources
+
 networks:
   ip_service_net:
     driver: bridge
@@ -45,3 +75,4 @@ networks:
 
 volumes:
   ip_service_data:
+  prometheus_data:

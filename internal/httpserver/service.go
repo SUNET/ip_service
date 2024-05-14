@@ -15,30 +15,35 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Service is the service object for httpserver
 type Service struct {
-	config *model.Cfg
-	logger *logger.Log
-	TP     *trace.Tracer
-	server *http.Server
-	apiv1  Apiv1
-	gin    *gin.Engine
+	config  *model.Cfg
+	logger  *logger.Log
+	TP      *trace.Tracer
+	metrics *metrics
+	server  *http.Server
+	apiv1   Apiv1
+	gin     *gin.Engine
 }
 
 // New creates a new httpserver service
 func New(ctx context.Context, cfg *model.Cfg, api *apiv1.Client, tp *trace.Tracer, logger *logger.Log) (*Service, error) {
 	s := &Service{
-		config: cfg,
-		logger: logger,
-		TP:     tp,
-		apiv1:  api,
+		config:  cfg,
+		logger:  logger,
+		TP:      tp,
+		metrics: &metrics{},
+		apiv1:   api,
 		server: &http.Server{
 			Addr:              cfg.IPService.APIServer.Addr,
 			ReadHeaderTimeout: 5 * time.Second,
 		},
 	}
+
+	s.metrics.init()
 
 	switch s.config.IPService.Production {
 	case true:
@@ -75,6 +80,8 @@ func New(ctx context.Context, cfg *model.Cfg, api *apiv1.Client, tp *trace.Trace
 		c.JSON(status, gin.H{"error": p, "data": nil})
 	})
 
+	rgRoot := s.gin.Group("/")
+
 	s.regEndpoint(ctx, "GET", "/", s.endpointIndex)
 	s.regEndpoint(ctx, "GET", "/city", s.endpointCity)
 	s.regEndpoint(ctx, "GET", "/asn", s.endpointASN)
@@ -85,7 +92,10 @@ func New(ctx context.Context, cfg *model.Cfg, api *apiv1.Client, tp *trace.Trace
 
 	s.regEndpoint(ctx, "GET", "/lookup/:ip", s.endpointLookUpIP)
 
-	s.regEndpoint(ctx, "GET", "/health", s.endpointStatus)
+	s.regEndpoint(ctx, "GET", "/health", s.endpointHealth)
+
+	rgMetrics := rgRoot.Group("/metrics")
+	rgMetrics.GET("/", gin.WrapH(promhttp.Handler()))
 
 	// Run http server
 	go func() {

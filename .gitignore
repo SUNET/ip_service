@@ -2,4 +2,4 @@ db/*
 kv_store/
 !.vscode/settings.json
 !/internal/store/
-config.yaml
+/configfiles/ip_service.yaml
