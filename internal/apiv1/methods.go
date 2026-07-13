@@ -321,5 +321,11 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 	reply.Timezone = cityRecord.Location.TimeZone
 	reply.Continent = cityRecord.Continent.Names["en"]
 
+	// Reverse DNS lookup
+	names, err := net.DefaultResolver.LookupAddr(ctx, ip)
+	if err == nil && len(names) > 0 {
+		reply.PTR = names[0]
+	}
+
 	return reply, nil
 }
