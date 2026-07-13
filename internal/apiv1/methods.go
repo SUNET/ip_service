@@ -81,7 +81,8 @@ func (c *Client) asnOrganization(ctx context.Context) (string, error) {
 	}
 	m, err := c.max.ASN(ctx, net.ParseIP(ip))
 	if err != nil {
-		return "", nil
+		c.log.Error(err, "failed to get ASN organization")
+		return "", err
 	}
 	return m.AutonomousSystemOrganization, nil
 }
@@ -95,7 +96,7 @@ func (c *Client) postal(ctx context.Context) (string, error) {
 	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
 		c.log.Error(err, "failed to get City")
-		return "", nil
+		return "", err
 	}
 	return m.Postal.Code, nil
 }
@@ -157,7 +158,8 @@ func (c *Client) countryISO(ctx context.Context) (string, error) {
 	}
 	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
-		return "", nil
+		c.log.Error(err, "failed to get City for country ISO")
+		return "", err
 	}
 	return m.Country.IsoCode, nil
 }
@@ -169,7 +171,8 @@ func (c *Client) isEU(ctx context.Context) (bool, error) {
 	}
 	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
-		return false, nil
+		c.log.Error(err, "failed to get City for EU check")
+		return false, err
 	}
 	return m.Country.IsInEuropeanUnion, nil
 }
@@ -189,7 +192,8 @@ func (c *Client) timezone(ctx context.Context) (string, error) {
 	}
 	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
-		return "", nil
+		c.log.Error(err, "failed to get City for timezone")
+		return "", err
 	}
 	return m.Location.TimeZone, nil
 }
@@ -201,7 +205,8 @@ func (c *Client) continent(ctx context.Context) (string, error) {
 	}
 	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
-		return "", nil
+		c.log.Error(err, "failed to get City for continent")
+		return "", err
 	}
 	return m.Continent.Names["en"], nil
 }
@@ -324,7 +329,7 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 	// Reverse DNS lookup
 	names, err := net.DefaultResolver.LookupAddr(ctx, ip)
 	if err == nil && len(names) > 0 {
-		reply.PTR = names[0]
+		reply.PTR = names
 	}
 
 	return reply, nil

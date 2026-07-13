@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"ip_service/pkg/helpers"
 	"reflect"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,6 +22,11 @@ func (s *Service) bindRequest(ctx context.Context, c *fiber.Ctx, v interface{}) 
 
 	// Bind URI parameters (path params)
 	s.bindURIParams(c, v)
+
+	// Validate the bound struct
+	if err := helpers.Check(v); err != nil {
+		return err
+	}
 
 	return nil
 }
