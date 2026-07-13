@@ -3,33 +3,48 @@ package maxmind
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"sync"
 	"time"
 
 	"ip_service/internal/store"
 	"ip_service/pkg/helpers"
-	"ip_service/pkg/logger"
+	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
-	"ip_service/pkg/trace"
+	"github.com/SUNET/vc/pkg/trace"
 
 	"github.com/oschwald/geoip2-golang"
 	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/time/rate"
 )
 
+type DBMeta map[string]*DBObject
+
+func (d DBMeta) DownloadInProgress(dbType string) {
+	d[dbType].Downloading = true
+}
+
+func (d DBMeta) DownloadingDone(dbType string) {
+	d[dbType].Downloading = false
+}
+
+func (d DBMeta) IsDownloadingInProgresses(dbType string) bool {
+	return d[dbType].Downloading
+}
+
 // Service holds the maxmind service object
 type Service struct {
 	probeStore   *model.StatusProbeStore
-	wg           sync.WaitGroup
 	cfg          *model.Cfg
-	log          *logger.Log
+	Log          *logger.Log
 	TP           *trace.Tracer
-	DBMeta       map[string]*DBObject
+	httpClient   *http.Client
+	DBMeta       DBMeta
 	DBCity       *geoip2.Reader
 	DBASN        *geoip2.Reader
 	kvStore      kvStore
-	quitChan     chan bool
+	quitChan     chan struct{}
 	reloadChan   chan string
 	downloadChan chan string
 	updateChan   chan string
@@ -46,92 +61,99 @@ type kvStore interface {
 
 // DBObject holds the maxmind database object
 type DBObject struct {
-	urlDB     string
-	filePath  string
-	rateLimit rate.Limiter
-	MU        sync.RWMutex
+	rateLimit   rate.Limiter
+	MU          sync.RWMutex
+	Missing     bool
+	Downloading bool
 }
 
 // New creates a new instance of maxmind
 func New(ctx context.Context, cfg *model.Cfg, store *store.Service, tp *trace.Tracer, log *logger.Log) (*Service, error) {
 	s := &Service{
 		probeStore:   &model.StatusProbeStore{},
-		wg:           sync.WaitGroup{},
 		cfg:          cfg,
-		log:          log,
+		Log:          log,
 		TP:           tp,
 		kvStore:      store.KV,
-		quitChan:     make(chan bool),
+		quitChan:     make(chan struct{}, 1),
 		reloadChan:   make(chan string, 10),
 		downloadChan: make(chan string, 10),
 		updateChan:   make(chan string, 10),
 		initialChan:  make(chan string, 10),
+		httpClient: &http.Client{
+			Timeout: 120 * time.Second,
+		},
 		DBMeta: map[string]*DBObject{
-			"city": {
-				filePath:  cfg.IPService.MaxMind.DB["city"].FilePath,
-				urlDB:     "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz",
-				rateLimit: *rate.NewLimiter(rate.Every(24*time.Hour), 4),
+			model.MaxmindDBTypeCity: {
+				Missing:     true,
+				Downloading: false,
+				rateLimit:   *rate.NewLimiter(rate.Every(24*time.Hour), 4),
 			},
-			"asn": {
-				filePath:  cfg.IPService.MaxMind.DB["asn"].FilePath,
-				urlDB:     "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&license_key=%s&suffix=tar.gz",
-				rateLimit: *rate.NewLimiter(rate.Every(24*time.Hour), 4),
+			model.MaxmindDBTypeASN: {
+				Missing:     true,
+				Downloading: false,
+				rateLimit:   *rate.NewLimiter(rate.Every(24*time.Hour), 4),
 			},
 		},
 	}
 
 	updateTicker := time.NewTicker(s.cfg.IPService.MaxMind.UpdatePeriodicity * time.Second)
 
-	s.wg.Add(1)
+	if err := os.MkdirAll(s.cfg.IPService.MaxMind.BaseFolder, 0750); err != nil {
+		return nil, err
+	}
+
+	for dbType := range s.DBMeta {
+		s.Log.Info("init db", "dbType", dbType)
+		if err := s.initial(ctx, dbType); err != nil {
+			s.Log.Error(err, "failed to initialize db", "dbType", dbType)
+			return nil, err
+		}
+	}
+
+	s.Log.Info("Started")
+
 	go func() {
 		for {
 			select {
 			// check periodically if there is a new version of the database available
 			case <-updateTicker.C:
+				s.Log.Info("UpdateTicker")
 				if cfg.IPService.MaxMind.AutomaticUpdate {
 					for dbType := range s.DBMeta {
-						s.updateChan <- dbType
+						if !s.DBMeta.IsDownloadingInProgresses(dbType) {
+							s.Log.Info("No downloading in progress", "dbtype", dbType)
+							s.updateChan <- dbType
+						}
 					}
 				}
 
-			case dbType := <-s.initialChan:
-				s.log.Info("initialChan", "dbType", dbType)
-				if err := s.initial(ctx, dbType); err != nil {
-					s.log.Error(err, "initial")
-				}
-
 			case dbType := <-s.updateChan:
-				if s.checkNewDBVersion(ctx, dbType) || s.dbFilesMissing(ctx, dbType) {
-					s.log.Debug("updateChan", "dbType", dbType)
+				if s.checkNewDBVersion(ctx, dbType) || !s.cfg.IPService.MaxMind.IsDBPresent(dbType) {
+					s.Log.Debug("updateChan", "dbType", dbType)
 					s.downloadChan <- dbType
 				}
 
 			case dbType := <-s.downloadChan:
-				s.log.Info("downloadChan", "dbType", dbType)
-				if err := s.dbDownloader(ctx, dbType); err != nil {
-					s.log.Error(err, "dbDownloader")
+				s.Log.Info("downloadChan", "dbType", dbType)
+				if err := s.downloadArchive(ctx, dbType); err != nil {
+					s.Log.Error(err, "dbDownloader")
+					return
 				}
-				s.reloadChan <- dbType
 
 			case dbType := <-s.reloadChan:
-				s.log.Info("reloadChan", "dbType", dbType)
+				s.Log.Info("reloadChan", "dbType", dbType)
 				if err := s.loadDB(ctx, dbType); err != nil {
-					s.log.Error(err, "loadDB")
+					s.Log.Error(err, "loadDB")
 				}
 
 			case <-s.quitChan:
-				s.log.Info("quit database update")
+				s.Log.Info("quit database update")
 				updateTicker.Stop()
-				s.wg.Done()
 				return
 			}
 		}
 	}()
-
-	for dbType := range s.DBMeta {
-		s.log.Debug("init db", "dbType", dbType)
-		s.initialChan <- dbType
-	}
 
 	return s, nil
 }
@@ -143,25 +165,38 @@ func (s *Service) loadDB(ctx context.Context, dbType string) error {
 	_, span := s.TP.Start(ctx, "maxmind:loadDB")
 	defer span.End()
 
-	s.log.Info("Run loadDB for", "dbType", dbType)
+	s.Log.Info("Run loadDB for", "dbType", dbType)
 
-	if _, err := os.Stat(s.DBMeta[dbType].filePath); errors.Is(err, os.ErrNotExist) {
-		s.log.Error(err, "loadDB", "dbType", dbType, "path", s.DBMeta[dbType].filePath)
+	if !s.cfg.IPService.MaxMind.IsDBPresent(dbType) {
 		return helpers.ErrMissingDBFile
 	}
 
-	db, err := geoip2.Open(s.DBMeta[dbType].filePath)
+	dbFileName := s.cfg.IPService.MaxMind.DBFilePath(dbType)
+
+	s.Log.Debug("load", "dbFileName", dbFileName)
+
+	db, err := geoip2.Open(dbFileName)
 	if err != nil {
-		s.log.Error(err, "geoip2.Open failed")
+		s.Log.Error(err, "geoip2.Open failed")
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
+	if db == nil {
+		return errors.New("geoip2.Open returned nil db")
+	}
+
 	switch dbType {
-	case "city":
+	case model.MaxmindDBTypeCity:
 		s.DBCity = db
-	case "asn":
+	case model.MaxmindDBTypeASN:
 		s.DBASN = db
+		metadata := s.DBASN.Metadata()
+		s.Log.Info("Maxmind", "dbType", dbType, "metadata", metadata)
+	default:
+		err := errors.New("unknown dbType: " + dbType)
+		s.Log.Error(err, "cannot load db")
+		return err
 	}
 
 	return nil
@@ -169,9 +204,7 @@ func (s *Service) loadDB(ctx context.Context, dbType string) error {
 
 // Close closes maxmind service
 func (s *Service) Close(ctx context.Context) error {
-	s.quitChan <- true
-	s.wg.Wait()
+	s.Log.Info("Quit")
 	ctx.Done()
-	s.log.Info("Quit")
 	return nil
 }

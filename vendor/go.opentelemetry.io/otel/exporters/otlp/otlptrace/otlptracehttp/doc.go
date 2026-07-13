@@ -22,7 +22,12 @@ target URL to which the exporter sends telemetry.
 The value must contain a scheme ("http" or "https") and host.
 The value may additionally contain a port and a path.
 The value should not contain a query string or fragment.
-The configuration can be overridden by [WithEndpoint], [WithEndpointURL], [WitnInsecure], and [WithURLPath] options.
+The configuration can be overridden by [WithEndpoint], [WithEndpointURL], [WithInsecure], and [WithURLPath] options.
+
+OTEL_EXPORTER_OTLP_INSECURE, OTEL_EXPORTER_OTLP_TRACES_INSECURE (default: "false") -
+setting "true" disables client transport security for the exporter's HTTP connection.
+OTEL_EXPORTER_OTLP_TRACES_INSECURE takes precedence over OTEL_EXPORTER_OTLP_INSECURE.
+The configuration can be overridden by [WithInsecure] and [WithTLSClientConfig] options.
 
 OTEL_EXPORTER_OTLP_HEADERS, OTEL_EXPORTER_OTLP_TRACES_HEADERS (default: none) -
 key-value pairs used as headers associated with HTTP requests.

@@ -3,47 +3,43 @@ package maxmind
 import (
 	"context"
 	"fmt"
-	"ip_service/internal/store"
-	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
-	"ip_service/pkg/trace"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	latestTS = "Thu, 01 Sep 2022 18:54:52 GMT"
-	oldTS    = "Thu, 01 Aug 2022 18:54:52 GMT"
-)
-
-func mockConfig(t *testing.T, storePath string) *model.Cfg {
+func mockConfig(t *testing.T, storePath, remoteURL string) *model.Cfg {
 	cfg := &model.Cfg{
 		IPService: &model.IPService{
 			APIServer: model.APIServer{
 				Addr: "",
 			},
 			Production: false,
-			HTTPProxy:  "",
 			Log:        model.Log{},
 			MaxMind: model.MaxMind{
 				AutomaticUpdate:   true,
 				UpdatePeriodicity: 100,
-				LicenseKey:        "",
+				Username:          "testUser",
+				Password:          "testPassword",
 				Enterprise:        false,
 				RetryCounter:      0,
 				DB: map[string]model.MaxMindDB{
-					"asn": {
-						FilePath: filepath.Join("..", "..", "testdata", "GeoLite2-asn-Test.mmdb"),
+					model.MaxmindDBTypeASN: {
+						FilePath: filepath.Join(storePath, "GeoLite2-asn.mmdb"),
 					},
-					"city": {
-						FilePath: filepath.Join("..", "..", "testdata", "GeoLite2-city-Test.mmdb"),
+					model.MaxmindDBTypeCity: {
+						FilePath: filepath.Join(storePath, "GeoLite2-city.mmdb"),
 					},
 				},
+				BaseFolder:    storePath,
+				RemoteURL:     remoteURL,
+				ArchiveFormat: "tar.gz",
 			},
 			Store: model.Store{
 				File: model.FileStorage{
@@ -54,52 +50,85 @@ func mockConfig(t *testing.T, storePath string) *model.Cfg {
 		},
 	}
 
+	fmt.Println("Mock config", cfg.IPService.MaxMind.RemoteURL, cfg.IPService.MaxMind.BaseFolder)
+
 	return cfg
-
 }
 
-func mockService(t *testing.T, storeDir string, preOpenDB bool) *Service {
-	mux := http.NewServeMux()
-	server := httptest.NewServer(mux)
-
-	url := strings.Join([]string{server.URL, "?license_key=%s"}, "/")
-
-	mockGenericEndpointServer(t, mux, "HEAD", fmt.Sprintf(url, "testKey"), nil, 200)
-
-	tracer, err := trace.NoTracing(context.TODO())
-	assert.NoError(t, err)
-
-	cfg := mockConfig(t, storeDir)
-
-	store, err := store.New(context.TODO(), cfg, tracer, logger.NewSimple("test-store"))
-	assert.NoError(t, err)
-
-	s, err := New(context.TODO(), cfg, store, tracer, logger.NewSimple("test-maxmind"))
-	assert.NoError(t, err)
-
-	return s
-}
-
-func mockGenericEndpointServer(t *testing.T, mux *http.ServeMux, method, url string, reply []byte, statusCode int) {
-	mux.HandleFunc(url,
-		func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("last-modified", latestTS)
-			w.Header().Set("Content-Type", "text/html")
-			w.WriteHeader(statusCode)
-			testMethod(t, r, method)
-			testURL(t, r, url)
-			_, err := w.Write(reply)
-			assert.NoError(t, err)
+func TestInitial(t *testing.T) {
+	tts := []struct {
+		name    string
+		dbTypes []string
+	}{
+		{
+			name: "empty folder-city",
+			dbTypes: []string{
+				model.MaxmindDBTypeASN,
+				model.MaxmindDBTypeCity,
+			},
 		},
-	)
-}
+	}
 
-func testMethod(t *testing.T, r *http.Request, want string) {
-	assert.Equal(t, want, r.Method)
-}
+	for _, tt := range tts {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
 
-func testURL(t *testing.T, r *http.Request, want string) {
-	assert.Equal(t, want, r.RequestURI)
+			mux.HandleFunc("GET /download/", func(w http.ResponseWriter, r *http.Request) {
+				t.Log("XXXXXXX Inside of mockServer")
+
+				q := r.URL.Query()
+				lic := q.Get("license_key")
+				suffix := q.Get("suffix")
+				eid := q.Get("edition_id")
+
+				var (
+					file []byte = nil
+					err  error
+				)
+
+				switch eid {
+				case "GeoLite2-City":
+					file, err = os.ReadFile("./testdata/GeoLite2-City.tar.gz")
+					assert.NoError(t, err)
+				case "GeoLite2-ASN":
+					file, err = os.ReadFile("./testdata/GeoLite2-ASN.tar.gz")
+					assert.NoError(t, err)
+				default:
+					t.Log("no edition_id match found")
+					t.FailNow()
+				}
+
+				t.Log("XXXXXXX Inside of mockServer", "license_key", lic, "suffix", suffix, "edition_id", eid)
+				w.Header().Set("last-modified", latestTS)
+				w.Header().Set("Content-Type", "application/gzip")
+				w.WriteHeader(200)
+
+				_, err = w.Write(file)
+				assert.NoError(t, err)
+			})
+
+			server := httptest.NewServer(mux)
+			defer server.Close()
+
+			tempDir := t.TempDir()
+
+			_ = mockService(t, tempDir, server.URL, false)
+
+			time.Sleep(1 * time.Second)
+
+			for _, dbType := range tt.dbTypes {
+				for _, fileType := range []string{"mmdb"} {
+					fileName := fmt.Sprintf("GeoLite2-%s.%s", dbType, fileType)
+					s, err := os.Stat(filepath.Join(tempDir, fileName))
+					assert.NoError(t, err)
+
+					if s != nil {
+						t.Log("fileName", s.Name(), "size", s.Size())
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestOpenDB(t *testing.T) {
@@ -114,14 +143,14 @@ func TestOpenDB(t *testing.T) {
 		{
 			name: "1-ASN-OK",
 			have: have{
-				dbType: "asn",
+				dbType: model.MaxmindDBTypeASN,
 			},
 			want: "",
 		},
 		{
 			name: "2-City-OK",
 			have: have{
-				dbType: "city",
+				dbType: model.MaxmindDBTypeCity,
 			},
 			want: "",
 		},
@@ -129,8 +158,21 @@ func TestOpenDB(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
+
+			mux := http.NewServeMux()
+
+			mux.HandleFunc("/download/", func(w http.ResponseWriter, r *http.Request) {
+				fmt.Println("XXXXXXX Inside of mockServer")
+				w.Header().Set("last-modified", latestTS)
+				w.Header().Set("Content-Type", "application/gzip")
+				w.WriteHeader(200)
+			})
+
+			server := httptest.NewServer(mux)
+
 			tempDir := t.TempDir()
-			service := mockService(t, tempDir, false)
+
+			service := mockService(t, tempDir, server.URL, false)
 
 			err := service.loadDB(context.TODO(), tt.have.dbType)
 			assert.NoError(t, err)

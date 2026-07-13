@@ -1,0 +1,809 @@
+basePath: /
+definitions:
+  apiv1.CollisionReply:
+    properties:
+      collision:
+        type: boolean
+    type: object
+  apiv1.CollisionRequest:
+    properties:
+      ip_1:
+        type: string
+      ip_2:
+        type: string
+    required:
+    - ip_1
+    - ip_2
+    type: object
+  helpers.Error:
+    properties:
+      details: {}
+      title:
+        type: string
+    type: object
+  helpers.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/helpers.Error'
+    type: object
+  model.BuildVariables:
+    properties:
+      git_branch:
+        type: string
+      git_commit:
+        type: string
+      go_arch:
+        type: string
+      go_version:
+        type: string
+      timestamp:
+        type: string
+      version:
+        type: string
+    type: object
+  model.Coordinates:
+    properties:
+      latitude:
+        type: number
+      longitude:
+        type: number
+    type: object
+  model.ReplyIPInformation:
+    properties:
+      asn:
+        type: integer
+      asn_organization:
+        type: string
+      city:
+        type: string
+      continent:
+        type: string
+      coordinates:
+        $ref: '#/definitions/model.Coordinates'
+      country:
+        type: string
+      country_iso:
+        type: string
+      hostname:
+        type: string
+      ip:
+        type: string
+      ip_decimal:
+        type: string
+      is_1918_network:
+        type: boolean
+      is_eu:
+        type: boolean
+      postal_code:
+        type: string
+      region:
+        type: string
+      region_code:
+        type: string
+      timezone:
+        type: string
+      user_agent:
+        $ref: '#/definitions/useragent.UserAgent'
+    type: object
+  model.ReplyLookUp:
+    properties:
+      asn:
+        type: integer
+      asn_organization:
+        type: string
+      city:
+        type: string
+      continent:
+        type: string
+      coordinates:
+        $ref: '#/definitions/model.Coordinates'
+      country:
+        type: string
+      country_iso:
+        type: string
+      hostname:
+        type: string
+      ip:
+        type: string
+      ip_decimal:
+        type: string
+      is_1918_network:
+        type: boolean
+      is_eu:
+        type: boolean
+      postal_code:
+        type: string
+      region:
+        type: string
+      region_code:
+        type: string
+      timezone:
+        type: string
+      whois:
+        additionalProperties:
+          $ref: '#/definitions/rpsl.Object'
+        type: object
+    type: object
+  model.StatusProbe:
+    properties:
+      healthy:
+        type: boolean
+      message:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  model.StatusReply:
+    properties:
+      data:
+        $ref: '#/definitions/model.StatusReplyData'
+    type: object
+  model.StatusReplyData:
+    properties:
+      build_variables:
+        $ref: '#/definitions/model.BuildVariables'
+      probes:
+        items:
+          $ref: '#/definitions/model.StatusProbe'
+        type: array
+      service_name:
+        type: string
+      status:
+        type: string
+    type: object
+  rpsl.ASN:
+    additionalProperties:
+      $ref: '#/definitions/rpsl.Object'
+    type: object
+  rpsl.Object:
+    properties:
+      abuse:
+        items:
+          type: string
+        type: array
+      abuse-c:
+        items:
+          type: string
+        type: array
+      abuse-mailbox:
+        items:
+          type: string
+        type: array
+      address:
+        items:
+          type: string
+        type: array
+      admin-c:
+        items:
+          type: string
+        type: array
+      aggr-bndry:
+        items:
+          type: string
+        type: array
+      aggr-mtd:
+        items:
+          type: string
+        type: array
+      alias:
+        items:
+          type: string
+        type: array
+      as-name:
+        items:
+          type: string
+        type: array
+      as-set:
+        items:
+          type: string
+        type: array
+      aut-num:
+        items:
+          type: string
+        type: array
+      auth:
+        items:
+          type: string
+        type: array
+      certif:
+        items:
+          type: string
+        type: array
+      changed:
+        items:
+          type: string
+        type: array
+      components:
+        items:
+          type: string
+        type: array
+      correo:
+        items:
+          type: string
+        type: array
+      country:
+        items:
+          type: string
+        type: array
+      created:
+        items:
+          type: string
+        type: array
+      dba:
+        items:
+          type: string
+        type: array
+      default:
+        items:
+          type: string
+        type: array
+      descr:
+        items:
+          type: string
+        type: array
+      e-mail:
+        items:
+          type: string
+        type: array
+      email:
+        items:
+          type: string
+        type: array
+      export:
+        items:
+          type: string
+        type: array
+      export-comps:
+        items:
+          type: string
+        type: array
+      export-via:
+        items:
+          type: string
+        type: array
+      fax-no:
+        items:
+          type: string
+        type: array
+      filter:
+        items:
+          type: string
+        type: array
+      filter-set:
+        items:
+          type: string
+        type: array
+      fingerpr:
+        items:
+          type: string
+        type: array
+      geoidx:
+        items:
+          type: string
+        type: array
+      holes:
+        items:
+          type: string
+        type: array
+      ifaddr:
+        items:
+          type: string
+        type: array
+      import:
+        items:
+          type: string
+        type: array
+      import-via:
+        items:
+          type: string
+        type: array
+      inet-rtr:
+        items:
+          type: string
+        type: array
+      inet6num:
+        items:
+          type: string
+        type: array
+      inetnum:
+        items:
+          type: string
+        type: array
+      inject:
+        items:
+          type: string
+        type: array
+      interface:
+        items:
+          type: string
+        type: array
+      ips:
+        items:
+          type: string
+        type: array
+      key-cert:
+        items:
+          type: string
+        type: array
+      last-modified:
+        type: string
+      local-as:
+        items:
+          type: string
+        type: array
+      mailto:
+        items:
+          type: string
+        type: array
+      mbrs-by-ref:
+        items:
+          type: string
+        type: array
+      member-of:
+        items:
+          type: string
+        type: array
+      members:
+        items:
+          type: string
+        type: array
+      method:
+        items:
+          type: string
+        type: array
+      mnt-by:
+        items:
+          type: string
+        type: array
+      mnt-lower:
+        items:
+          type: string
+        type: array
+      mnt-nfy:
+        items:
+          type: string
+        type: array
+      mnt-routes:
+        items:
+          type: string
+        type: array
+      mntner:
+        items:
+          type: string
+        type: array
+      mp-default:
+        items:
+          type: string
+        type: array
+      mp-export:
+        items:
+          type: string
+        type: array
+      mp-filter:
+        items:
+          type: string
+        type: array
+      mp-import:
+        items:
+          type: string
+        type: array
+      mp-members:
+        items:
+          type: string
+        type: array
+      mp-peer:
+        items:
+          type: string
+        type: array
+      mp-peering:
+        items:
+          type: string
+        type: array
+      netname:
+        items:
+          type: string
+        type: array
+      network:
+        type: string
+      nic-hdl:
+        items:
+          type: string
+        type: array
+      notify:
+        items:
+          type: string
+        type: array
+      org:
+        items:
+          type: string
+        type: array
+      org-name:
+        items:
+          type: string
+        type: array
+      org-type:
+        items:
+          type: string
+        type: array
+      origin:
+        type: string
+      owner:
+        items:
+          type: string
+        type: array
+      owner-c:
+        items:
+          type: string
+        type: array
+      ownerid:
+        items:
+          type: string
+        type: array
+      peer:
+        items:
+          type: string
+        type: array
+      peering:
+        items:
+          type: string
+        type: array
+      peering-set:
+        items:
+          type: string
+        type: array
+      person:
+        items:
+          type: string
+        type: array
+      phone:
+        items:
+          type: string
+        type: array
+      ping-hdl:
+        items:
+          type: string
+        type: array
+      pingable:
+        items:
+          type: string
+        type: array
+      remarks:
+        items:
+          type: string
+        type: array
+      responsible:
+        items:
+          type: string
+        type: array
+      roa-uri:
+        items:
+          type: string
+        type: array
+      role:
+        items:
+          type: string
+        type: array
+      route-set:
+        description: |-
+          Route        []string `json:"route,omitempty" bson:"route,omitempty"`
+          Route6       []string `json:"route6,omitempty" bson:"route6,omitempty"`
+        items:
+          type: string
+        type: array
+      rs-in:
+        items:
+          type: string
+        type: array
+      rs-out:
+        items:
+          type: string
+        type: array
+      rtr-set:
+        items:
+          type: string
+        type: array
+      source:
+        items:
+          type: string
+        type: array
+      status:
+        items:
+          type: string
+        type: array
+      support:
+        items:
+          type: string
+        type: array
+      tech-c:
+        items:
+          type: string
+        type: array
+      tel:
+        items:
+          type: string
+        type: array
+      trouble:
+        items:
+          type: string
+        type: array
+      upd-to:
+        items:
+          type: string
+        type: array
+      website:
+        items:
+          type: string
+        type: array
+    type: object
+  useragent.UserAgent:
+    properties:
+      bot:
+        type: boolean
+      desktop:
+        type: boolean
+      device:
+        type: string
+      mobile:
+        type: boolean
+      name:
+        type: string
+      os:
+        type: string
+      osversion:
+        type: string
+      osversionNo:
+        $ref: '#/definitions/useragent.VersionNo'
+      string:
+        type: string
+      tablet:
+        type: boolean
+      url:
+        type: string
+      version:
+        type: string
+      versionNo:
+        $ref: '#/definitions/useragent.VersionNo'
+    type: object
+  useragent.VersionNo:
+    properties:
+      major:
+        type: integer
+      minor:
+        type: integer
+      patch:
+        type: integer
+    type: object
+info:
+  contact: {}
+  title: ip_service API
+  version: 0.1.0
+paths:
+  /:
+    get:
+      consumes:
+      - application/json
+      description: ip for the request
+      operationId: ip
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/model.ReplyIPInformation'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: get IP for the request
+      tags:
+      - ip_service
+  /asn:
+    get:
+      consumes:
+      - application/json
+      description: ASN for the given IP
+      operationId: asn
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: get ASN for the given IP
+      tags:
+      - ip_service
+  /city:
+    get:
+      consumes:
+      - application/json
+      description: city for the given IP
+      operationId: city
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: get city for the given IP
+      tags:
+      - ip_service
+  /collision:
+    post:
+      consumes:
+      - application/json
+      description: takes two CIDR blocks and checks if they overlap
+      operationId: collision
+      parameters:
+      - description: ' '
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/apiv1.CollisionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/apiv1.CollisionReply'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: Check if two CIDR blocks overlap
+      tags:
+      - ip_service
+  /coordinates:
+    get:
+      consumes:
+      - application/json
+      description: coordinates for the given IP
+      operationId: coordinates
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: get Coordinates for the given IP
+      tags:
+      - ip_service
+  /country:
+    get:
+      consumes:
+      - application/json
+      description: country for the given IP
+      operationId: country
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: get country for the given IP
+      tags:
+      - ip_service
+  /country-iso:
+    get:
+      consumes:
+      - application/json
+      description: country ISO for the given IP
+      operationId: countryISO
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: get Country ISO for the given IP
+      tags:
+      - ip_service
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: returns the status of the service
+      operationId: status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/model.StatusReply'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: Status of the service
+      tags:
+      - ip_service
+  /lookup/{ip}:
+    get:
+      consumes:
+      - application/json
+      description: takes query parameter ip and returns all information
+      operationId: lookUpIP
+      parameters:
+      - description: ip
+        in: path
+        name: ip
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/model.ReplyLookUp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: Look up all information for the given IP
+      tags:
+      - ip_service
+  /whois/{ip}:
+    get:
+      consumes:
+      - application/json
+      description: takes query parameter ip and returns whois information in JSON
+        format
+      operationId: whois
+      parameters:
+      - description: ip
+        in: path
+        name: ip
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/rpsl.ASN'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: Whois information in JSON format
+      tags:
+      - ip_service
+swagger: "2.0"

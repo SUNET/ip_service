@@ -2,69 +2,42 @@ package httpserver
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
 )
 
-func (s *Service) bindRequest(ctx context.Context, c *gin.Context, v interface{}) error {
+func (s *Service) bindRequest(ctx context.Context, c *fiber.Ctx, v interface{}) error {
 	ctx, span := s.TP.Start(ctx, "httpserver:bindRequest")
 	defer span.End()
 
-	if c.ContentType() == gin.MIMEJSON {
-		_ = c.ShouldBindJSON(v)
+	// Bind JSON body if content type is JSON
+	if c.Get("Content-Type") == "application/json" {
+		_ = c.BodyParser(v)
 	}
-	_ = s.bindRequestQuery(ctx, c, v)
-	_ = c.ShouldBindQuery(v)
-	return c.ShouldBindUri(v)
+
+	// Bind query parameters
+	_ = c.QueryParser(v)
+
+	// Bind URI parameters (path params)
+	s.bindURIParams(c, v)
+
+	return nil
 }
 
-func (s *Service) bindRequestQuery(ctx context.Context, c *gin.Context, v interface{}) error {
-	_, span := s.TP.Start(ctx, "httpserver:bindRequestQuery")
-	defer span.End()
-
+// bindURIParams maps path parameters to struct fields tagged with `uri:"name"`
+func (s *Service) bindURIParams(c *fiber.Ctx, v interface{}) {
 	refV := reflect.ValueOf(v).Elem()
-	refT := reflect.ValueOf(v).Elem().Type()
+	refT := refV.Type()
 	for i := 0; i < refT.NumField(); i++ {
 		field := refT.Field(i)
-		fieldType := field.Type
-		fieldKey := field.Tag.Get("form")
-		if fieldKey == "" {
-			fieldKey = field.Name
+		uriTag := field.Tag.Get("uri")
+		if uriTag == "" {
+			continue
 		}
-		switch fieldType.String() {
-		case "map[string]string":
-			v := c.QueryMap(fieldKey)
-			if len(v) == 0 {
-				continue
-			}
-			refV.FieldByName(field.Name).Set(reflect.ValueOf(v))
-		case "*map[string]string":
-			v := c.QueryMap(fieldKey)
-			if len(v) == 0 {
-				continue
-			}
-			refV.FieldByName(field.Name).Set(reflect.ValueOf(&v))
-		case "map[string][]string":
-			v := make(map[string][]string)
-			for key := range c.QueryMap(fieldKey) {
-				v[key] = c.QueryArray(fmt.Sprintf("%s[%s]", fieldKey, key))
-			}
-			if len(v) == 0 {
-				continue
-			}
-			refV.FieldByName(field.Name).Set(reflect.ValueOf(v))
-		case "*map[string][]string":
-			v := make(map[string][]string)
-			for key := range c.QueryMap(fieldKey) {
-				v[key] = c.QueryArray(fmt.Sprintf("%s[%s]", fieldKey, key))
-			}
-			if len(v) == 0 {
-				continue
-			}
-			refV.FieldByName(field.Name).Set(reflect.ValueOf(&v))
+		param := c.Params(uriTag)
+		if param != "" {
+			refV.Field(i).SetString(param)
 		}
 	}
-	return nil
 }

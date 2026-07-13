@@ -3,3 +3,15 @@ kv_store/
 !.vscode/settings.json
 !/internal/store/
 /configfiles/ip_service.yaml
+
+# Large database/testdata files
+internal/maxmind/testdata/*.mmdb
+internal/maxmind/testdata/*.tar.gz
+internal/maxmind/testdata/GeoLite2-ASN_*/
+internal/maxmind/testdata/GeoLite2-City_*/
+internal/maxmind/testdata/radb.db_radb.txt
+internal/maxmind/testdata/ripe.db_route.txt
+internal/maxmind/testdata/ripe.db_route6.txt
+
+radb.db
+internal/maxmind/testdata/radb.db

@@ -1,0 +1,24 @@
+# Large directories not needed for build
+.git/
+db/
+bin/
+kv_store/
+
+# Test data
+testdata/
+**/testdata/
+
+# Build artifacts and configs
+*.mmdb
+configfiles/
+docs/diagrams/
+errors.txt
+petti_tast.py
+tester/
+.radb.db
+
+# IDE / OS
+.vscode/
+.devcontainer/
+*.swp
+*.swo

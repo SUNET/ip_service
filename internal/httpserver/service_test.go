@@ -1,12 +1,10 @@
 package httpserver
 
 import (
-	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,28 +16,28 @@ func TestAccept(t *testing.T) {
 	}{
 		{
 			name:        "1-json",
-			accept:      gin.MIMEJSON,
-			contentType: gin.MIMEJSON,
+			accept:      MIMEJSON,
+			contentType: MIMEJSON,
 		},
 		{
 			name:        "2-plain",
-			accept:      gin.MIMEPlain,
-			contentType: gin.MIMEPlain,
+			accept:      MIMEPlain,
+			contentType: MIMEPlain,
 		},
 		{
 			name:        "3-html",
-			accept:      gin.MIMEHTML,
-			contentType: gin.MIMEHTML,
+			accept:      MIMEHTML,
+			contentType: MIMEHTML,
 		},
 		{
 			name:        "5-image-*",
 			accept:      "image/*",
-			contentType: gin.MIMEHTML,
+			contentType: MIMEHTML,
 		},
 		{
 			name:        "6-*-*",
 			accept:      "*/*",
-			contentType: gin.MIMEPlain,
+			contentType: MIMEPlain,
 		},
 	}
 
@@ -47,14 +45,21 @@ func TestAccept(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := mockService(t)
 
-			c, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c.Request = &http.Request{
-				Header: make(http.Header),
-				URL:    &url.URL{},
-			}
-			c.Request.Header.Set("Accept", tt.accept)
+			app := fiber.New()
+			app.Get("/test", func(c *fiber.Ctx) error {
+				got := service.getAccept(c)
+				return c.SendString(got)
+			})
 
-			got := service.getAccept(c)
+			req := httptest.NewRequest("GET", "/test", nil)
+			req.Header.Set("Accept", tt.accept)
+			resp, err := app.Test(req)
+			assert.NoError(t, err)
+			assert.Equal(t, 200, resp.StatusCode)
+
+			buf := make([]byte, 256)
+			n, _ := resp.Body.Read(buf)
+			got := string(buf[:n])
 			assert.Equal(t, tt.contentType, got)
 		})
 	}

@@ -4,10 +4,15 @@ import (
 	"context"
 	"ip_service/internal/maxmind"
 	"ip_service/internal/store"
-	"ip_service/pkg/logger"
+	"ip_service/internal/whois"
+	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
-	"ip_service/pkg/trace"
+	"github.com/SUNET/vc/pkg/trace"
 )
+
+//	@title		ip_service API
+//	@version	0.1.0
+//	@BasePath	/
 
 // Client holds the public api object
 type Client struct {
@@ -15,16 +20,18 @@ type Client struct {
 	log    *logger.Log
 	tp     *trace.Tracer
 	max    *maxmind.Service
+	whois  *whois.Service
 	store  *store.Service
 }
 
 // New creates a new instance of public api
-func New(ctx context.Context, max *maxmind.Service, store *store.Service, config *model.Cfg, tp *trace.Tracer, log *logger.Log) (*Client, error) {
+func New(ctx context.Context, max *maxmind.Service, whois *whois.Service, store *store.Service, config *model.Cfg, tp *trace.Tracer, log *logger.Log) (*Client, error) {
 	c := &Client{
 		config: config,
 		log:    log,
 		tp:     tp,
 		max:    max,
+		whois:  whois,
 		store:  store,
 	}
 

@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ip_service/pkg/logger"
+	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
-	"ip_service/pkg/trace"
+	"github.com/SUNET/vc/pkg/trace"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -19,7 +19,6 @@ func mockConfig(storePath string) *model.Cfg {
 				Addr: "",
 			},
 			Production: false,
-			HTTPProxy:  "",
 			Log:        model.Log{},
 			MaxMind:    model.MaxMind{},
 			Store: model.Store{
@@ -40,7 +39,7 @@ func mockNew(t *testing.T, dir string) *Service {
 	storePath := filepath.Join(dir, "store")
 	cfg := mockConfig(storePath)
 
-	tp, err := trace.New(ctx, cfg, logger.NewSimple("test"), "test", "test")
+	tp, err := trace.NewForTesting(ctx, "test", logger.NewSimple("test"))
 	assert.NoError(t, err)
 
 	s, err := New(ctx, cfg, tp, logger.NewSimple("test"))

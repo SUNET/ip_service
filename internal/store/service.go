@@ -2,9 +2,9 @@ package store
 
 import (
 	"context"
-	"ip_service/pkg/logger"
+	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
-	"ip_service/pkg/trace"
+	"github.com/SUNET/vc/pkg/trace"
 	"strings"
 	"time"
 
@@ -37,6 +37,8 @@ func New(ctx context.Context, cfg *model.Cfg, tp *trace.Tracer, log *logger.Log)
 	if err := s.newKV(ctx); err != nil {
 		return nil, err
 	}
+
+	log.Info("Started")
 
 	return s, nil
 }

@@ -2,8 +2,7 @@ package configuration
 
 import (
 	"context"
-	"fmt"
-	"ip_service/pkg/logger"
+	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
 	"os"
 	"testing"
@@ -29,26 +28,33 @@ func TestParse(t *testing.T) {
 						Addr: ":8080",
 					},
 					Production: false,
-					HTTPProxy:  "",
 					Log:        model.Log{},
+					Radb: model.Radb{
+						FilePath: "/var/lib/ip_service/radb",
+					},
+					RIPE: model.RIPE{
+						FilePath: "/var/lib/ip_service/ripe",
+					},
 					MaxMind: model.MaxMind{
-						AutomaticUpdate:   true,
-						UpdatePeriodicity: 10,
-						LicenseKey:        "",
-						Enterprise:        false,
-						RetryCounter:      0,
+						AutomaticUpdate: true,
+						Enterprise:      false,
+						Username:        "668041",
+						ArchiveFormat:   "tar.gz",
+						BaseFolder:      "/var/lib/ip_service/maxmind",
+						RemoteURL:       "https://download.maxmind.com/geoip/databases",
+						RetryCounter:    0,
 						DB: map[string]model.MaxMindDB{
-							"asn": {
-								FilePath: "./db/GeoLite2-asn.mmdb",
+							model.MaxmindDBTypeASN: {
+								FilePath: "/var/lib/ip_service/maxmind/GeoLite2-ASN.mmdb",
 							},
-							"city": {
-								FilePath: "./db/GeoLite2-city.mmdb",
+							model.MaxmindDBTypeCity: {
+								FilePath: "/var/lib/ip_service/maxmind/GeoLite2-City.mmdb",
 							},
 						},
 					},
 					Store: model.Store{
 						File: model.FileStorage{
-							Path: "kv_store",
+							Path: "/var/lib/ip_service/kv_store",
 						},
 					},
 					Tracing: model.Tracing{
@@ -61,7 +67,7 @@ func TestParse(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			path := fmt.Sprintf("../../config.yaml")
+			path := "../../configfiles/ip_service.yaml"
 
 			if tt.setEnvVariable {
 				err := os.Setenv("CONFIG_YAML", path)
@@ -72,7 +78,10 @@ func TestParse(t *testing.T) {
 			got, err := Parse(context.TODO(), testLog)
 			assert.NoError(t, err)
 
-			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreFields(model.MaxMind{}, "LicenseKey")); diff != "" {
+			ignoreLicKey := cmpopts.IgnoreFields(model.MaxMind{}, "Password")
+			ignoreUpdatePeriodicity := cmpopts.IgnoreFields(model.MaxMind{}, "UpdatePeriodicity")
+
+			if diff := cmp.Diff(tt.want, got, ignoreLicKey, ignoreUpdatePeriodicity); diff != "" {
 				t.Errorf("diff: %s", diff)
 			}
 
