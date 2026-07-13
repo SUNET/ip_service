@@ -14,6 +14,7 @@ import (
 func (c *Client) getIP(ctx context.Context) (string, error) {
 	requestContext, err := contexthandler.Get(ctx, "request")
 	if err != nil {
+		c.log.Error(err, "failed to get request context")
 		return "", err
 	}
 
@@ -43,25 +44,31 @@ func (c *Client) ua(ctx context.Context) (ua.UserAgent, error) {
 func (c *Client) IPDecimal(ctx context.Context) (string, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
+		c.log.Error(err, "failed to get IP")
 		return "", err
 	}
 	ipBinary, err := netaddr.MustParseIP(ip).MarshalBinary()
 	if err != nil {
+		c.log.Error(err, "failed to parse IP to binary")
 		return "", err
 	}
 
 	ipInt := big.NewInt(0)
 	ipInt.SetBytes(ipBinary)
+
 	return ipInt.String(), nil
 }
 
 func (c *Client) asn(ctx context.Context) (uint, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
+		c.log.Error(err, "failed to get ip")
 		return 0, err
 	}
+
 	m, err := c.max.ASN(ctx, net.ParseIP(ip))
 	if err != nil {
+		c.log.Error(err, "failed to get ASN")
 		return 0, err
 	}
 	return m.AutonomousSystemNumber, nil
@@ -82,10 +89,12 @@ func (c *Client) asnOrganization(ctx context.Context) (string, error) {
 func (c *Client) postal(ctx context.Context) (string, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
+		c.log.Error(err, "failed to get IP")
 		return "", err
 	}
 	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
+		c.log.Error(err, "failed to get City")
 		return "", nil
 	}
 	return m.Postal.Code, nil
@@ -94,16 +103,24 @@ func (c *Client) postal(ctx context.Context) (string, error) {
 func (c *Client) city(ctx context.Context) (string, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
+		c.log.Error(err, "failed to get IP")
 		return "", err
 	}
 	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
+		c.log.Error(err, "failed to get City")
 		return "", err
 	}
-	return m.City.Names["en"], nil
+
+	reply, ok := m.City.Names["en"]
+	if !ok {
+		c.log.Debug("no City name in English available")
+		return "", nil
+	}
+	return reply, nil
 }
 
-func (c *Client) coordinates(ctx context.Context) ([]float64, error) {
+func (c *Client) coordinates(ctx context.Context) (*model.Coordinates, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
 		return nil, err
@@ -112,7 +129,11 @@ func (c *Client) coordinates(ctx context.Context) ([]float64, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []float64{m.Location.Latitude, m.Location.Longitude}, nil
+	reply := &model.Coordinates{
+		Latitude:  m.Location.Latitude,
+		Longitude: m.Location.Longitude,
+	}
+	return reply, nil
 }
 
 func (c *Client) country(ctx context.Context) (string, error) {
@@ -131,6 +152,7 @@ func (c *Client) country(ctx context.Context) (string, error) {
 func (c *Client) countryISO(ctx context.Context) (string, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
+		c.log.Error(err, "failed to get IP")
 		return "", err
 	}
 	m, err := c.max.City(ctx, net.ParseIP(ip))
@@ -185,159 +207,119 @@ func (c *Client) continent(ctx context.Context) (string, error) {
 }
 
 func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, error) {
-	ipDecimal, err := c.IPDecimal(ctx)
-	if err != nil {
-		return nil, err
-	}
-	asn, err := c.asn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	asnOrg, err := c.asnOrganization(ctx)
-	if err != nil {
-		return nil, err
-	}
-	city, err := c.city(ctx)
-	if err != nil {
-		return nil, err
-	}
-	country, err := c.country(ctx)
-	if err != nil {
-		return nil, err
-	}
-	countryISO, err := c.countryISO(ctx)
-	if err != nil {
-		return nil, err
-	}
-	eu, err := c.isEU(ctx)
-	if err != nil {
-		return nil, err
-	}
-	network1918, err := c.is1918Network(ctx)
-	if err != nil {
-		return nil, err
-	}
-	postal, err := c.postal(ctx)
-	if err != nil {
-		return nil, err
-	}
-	coordinates, err := c.coordinates(ctx)
-	if err != nil {
-		return nil, err
-	}
-	tz, err := c.timezone(ctx)
-	if err != nil {
-		return nil, err
-	}
-	continent, err := c.continent(ctx)
-	if err != nil {
-		return nil, err
-	}
+	c.log.Debug("formatAllJSON start")
+
+	reply := &model.ReplyIPInformation{}
 
 	ip, err := c.getIP(ctx)
 	if err != nil {
+		c.log.Error(err, "failed to get IP")
 		return nil, err
 	}
+	reply.IP = ip
 
-	ua, err := c.ua(ctx)
+	reply.IPDecimal, err = c.IPDecimal(ctx)
 	if err != nil {
+		c.log.Error(err, "failed to get IPDecimal")
 		return nil, err
 	}
 
-	return &model.ReplyIPInformation{
-		IP:              ip,
-		IPDecimal:       ipDecimal,
-		ASN:             asn,
-		ASNOrganization: asnOrg,
-		City:            city,
-		Country:         country,
-		CountryISO:      countryISO,
-		IsEU:            eu,
-		Is1918Network:   network1918,
-		Region:          "",
-		RegionCode:      "",
-		PostalCode:      postal,
-		Latitude:        coordinates[0],
-		Longitude:       coordinates[1],
-		Timezone:        tz,
-		Hostname:        "",
-		UserAgent:       ua,
-		Continent:       continent,
-	}, nil
+	parsedIP := net.ParseIP(ip)
+
+	// Single ASN lookup instead of two separate calls
+	asnRecord, err := c.max.ASN(ctx, parsedIP)
+	if err != nil {
+		c.log.Error(err, "failed to get ASN")
+		return nil, err
+	}
+	reply.ASN = asnRecord.AutonomousSystemNumber
+	reply.ASNOrganization = asnRecord.AutonomousSystemOrganization
+
+	// Single City lookup instead of eight separate calls
+	cityRecord, err := c.max.City(ctx, parsedIP)
+	if err != nil {
+		c.log.Error(err, "failed to get City")
+		return nil, err
+	}
+
+	reply.City = cityRecord.City.Names["en"]
+	reply.Country = cityRecord.Country.Names["en"]
+	reply.CountryISO = cityRecord.Country.IsoCode
+	reply.IsEU = cityRecord.Country.IsInEuropeanUnion
+	reply.Is1918Network = parsedIP.IsPrivate()
+	reply.PostalCode = cityRecord.Postal.Code
+	reply.Coordinates = &model.Coordinates{
+		Latitude:  cityRecord.Location.Latitude,
+		Longitude: cityRecord.Location.Longitude,
+	}
+	reply.Timezone = cityRecord.Location.TimeZone
+	reply.Continent = cityRecord.Continent.Names["en"]
+
+	reply.UserAgent, err = c.ua(ctx)
+	if err != nil {
+		c.log.Error(err, "failed to get UserAgent")
+		return nil, err
+	}
+
+	return reply, nil
 }
 
 func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, error) {
-	ipDecimal, err := c.IPDecimal(ctx)
-	if err != nil {
-		return nil, err
-	}
-	asn, err := c.asn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	asnOrg, err := c.asnOrganization(ctx)
-	if err != nil {
-		return nil, err
-	}
-	city, err := c.city(ctx)
-	if err != nil {
-		return nil, err
-	}
-	country, err := c.country(ctx)
-	if err != nil {
-		return nil, err
-	}
-	countryISO, err := c.countryISO(ctx)
-	if err != nil {
-		return nil, err
-	}
-	eu, err := c.isEU(ctx)
-	if err != nil {
-		return nil, err
-	}
-	network1918, err := c.is1918Network(ctx)
-	if err != nil {
-		return nil, err
-	}
-	postal, err := c.postal(ctx)
-	if err != nil {
-		return nil, err
-	}
-	coordinates, err := c.coordinates(ctx)
-	if err != nil {
-		return nil, err
-	}
-	tz, err := c.timezone(ctx)
-	if err != nil {
-		return nil, err
-	}
-	continent, err := c.continent(ctx)
-	if err != nil {
-		return nil, err
-	}
+	reply := &model.ReplyLookUp{}
 
 	ip, err := c.getIP(ctx)
 	if err != nil {
+		c.log.Error(err, "failed to get IP")
+		return nil, err
+	}
+	reply.IP = ip
+
+	reply.IPDecimal, err = c.IPDecimal(ctx)
+	if err != nil {
+		c.log.Error(err, "failed to get IPDecimal")
 		return nil, err
 	}
 
-	return &model.ReplyLookUp{
-		IP:              ip,
-		IPDecimal:       ipDecimal,
-		ASN:             asn,
-		ASNOrganization: asnOrg,
-		City:            city,
-		Country:         country,
-		CountryISO:      countryISO,
-		IsEU:            eu,
-		Is1918Network:   network1918,
-		Region:          "",
-		RegionCode:      "",
-		PostalCode:      postal,
-		Latitude:        coordinates[0],
-		Longitude:       coordinates[1],
-		Timezone:        tz,
-		Hostname:        "",
-		Continent:       continent,
-	}, nil
+	parsedIP := net.ParseIP(ip)
+
+	// Single ASN lookup instead of two separate calls
+	asnRecord, err := c.max.ASN(ctx, parsedIP)
+	if err != nil {
+		c.log.Error(err, "failed to get ASN")
+		return nil, err
+	}
+	reply.ASN = asnRecord.AutonomousSystemNumber
+	reply.ASNOrganization = asnRecord.AutonomousSystemOrganization
+
+	c.log.Debug("before whois")
+
+	reply.Whois, err = c.whois.QueryIP(ctx, reply.IP)
+	if err != nil {
+		c.log.Error(err, "failed to get route info from radb", "ip", reply.IP)
+		return nil, err
+	}
+
+	c.log.Debug("after whois")
+
+	// Single City lookup instead of eight separate calls
+	cityRecord, err := c.max.City(ctx, parsedIP)
+	if err != nil {
+		c.log.Error(err, "failed to get City")
+		return nil, err
+	}
+
+	reply.City = cityRecord.City.Names["en"]
+	reply.Country = cityRecord.Country.Names["en"]
+	reply.CountryISO = cityRecord.Country.IsoCode
+	reply.IsEU = cityRecord.Country.IsInEuropeanUnion
+	reply.Is1918Network = parsedIP.IsPrivate()
+	reply.PostalCode = cityRecord.Postal.Code
+	reply.Coordinates = &model.Coordinates{
+		Latitude:  cityRecord.Location.Latitude,
+		Longitude: cityRecord.Location.Longitude,
+	}
+	reply.Timezone = cityRecord.Location.TimeZone
+	reply.Continent = cityRecord.Continent.Names["en"]
+
+	return reply, nil
 }

@@ -1,23 +1,16 @@
 ---
-version: '3.4'
-
 services:
   ip_service:
     image: docker.sunet.se/ip_service:latest
     container_name: ip_service
-    networks:
-      ip_service_net:
-        ipv4_address: 172.16.20.250
-    ports:
-      - 8080:8080
+    network_mode: host
     volumes:
       - ./configfiles/ip_service.yaml:/tmp/config.yaml:ro
-      - ./templates/:/templates:ro
-      - ./assets/:/assets:ro
-      - ./db:/db
-      - ./kv_store:/kv_store
+      - ./db:/tmp/db
+      - ip_service_data:/var/lib/ip_service
     environment:
       - CONFIG_YAML=/tmp/config.yaml
+      - GOMEMLIMIT=1500MiB
 
   jaeger:
     image: jaegertracing/all-in-one:latest
@@ -52,7 +45,7 @@ services:
     image: grafana/grafana
     container_name: grafana
     ports:
-      - 3000:3000
+      - 3001:3000
     networks:
       ip_service_net:
         ipv4_address: 172.16.20.13
@@ -76,3 +69,6 @@ networks:
 volumes:
   ip_service_data:
   prometheus_data:
+  mongo_data:
+  kv_data:
+  graph_data:

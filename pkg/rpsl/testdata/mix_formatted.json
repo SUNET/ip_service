@@ -1,0 +1,34 @@
+{
+    "route": [
+        {
+            "last-modified": "0001-01-01T00:00:00Z",
+            "origin": "AS12726",
+            "network": "193.254.30.0/24"
+        },
+        {
+            "last-modified": "0001-01-01T00:00:00Z",
+            "origin": "AS12321",
+            "network": "212.166.64.0/19"
+        },
+        {
+            "last-modified": "0001-01-01T00:00:00Z",
+            "origin": "AS12541",
+            "network": "212.166.64.0/19"
+        },
+        {
+            "last-modified": "0001-01-01T00:00:00Z",
+            "origin": "AS1273",
+            "network": "195.2.0.0/19"
+        },
+        {
+            "last-modified": "0001-01-01T00:00:00Z",
+            "origin": "AS8921",
+            "network": "212.44.224.0/19"
+        },
+        {
+            "last-modified": "0001-01-01T00:00:00Z",
+            "origin": "AS12541",
+            "network": "212.80.176.0/29"
+        }
+    ]
+}

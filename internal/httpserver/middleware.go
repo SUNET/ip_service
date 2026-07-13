@@ -5,44 +5,47 @@ import (
 	"ip_service/pkg/helpers"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
 	"github.com/lithammer/shortuuid/v4"
 )
 
-func (s *Service) middlewareDuration(ctx context.Context) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func (s *Service) middlewareDuration(ctx context.Context) fiber.Handler {
+	return func(c *fiber.Ctx) error {
 		t := time.Now()
-		c.Next()
+		err := c.Next()
 		duration := time.Since(t)
-		c.Set("duration", duration)
+		c.Locals("duration", duration)
+		return err
 	}
 }
 
-func (s *Service) middlewareTraceID(ctx context.Context) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("req-id", shortuuid.New())
-		c.Header("req-id", c.GetString("req-id"))
-		c.Next()
+func (s *Service) middlewareTraceID(ctx context.Context) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		reqID := shortuuid.New()
+		c.Locals("req-id", reqID)
+		c.Set("req-id", reqID)
+		return c.Next()
 	}
 }
 
-func (s *Service) middlewareLogger(ctx context.Context) gin.HandlerFunc {
+func (s *Service) middlewareLogger(ctx context.Context) fiber.Handler {
 	log := s.logger.New("http")
-	return func(c *gin.Context) {
-		c.Next()
-		log.Info("request", "status", c.Writer.Status(), "url", c.Request.URL.String(), "method", c.Request.Method, "req-id", c.GetString("req-id"))
+	return func(c *fiber.Ctx) error {
+		err := c.Next()
+		reqID, _ := c.Locals("req-id").(string)
+		log.Info("request", "status", c.Response().StatusCode(), "url", c.OriginalURL(), "method", c.Method(), "req-id", reqID)
+		return err
 	}
 }
 
-func (s *Service) middlewareCrash(ctx context.Context) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func (s *Service) middlewareCrash(ctx context.Context) fiber.Handler {
+	return func(c *fiber.Ctx) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				status := c.Writer.Status()
-				s.logger.Debug("crash", "status", status)
-				c.JSON(500, gin.H{"data": nil, "error": helpers.NewError("internal_server_error")})
+				s.logger.Debug("crash", "panic", r)
+				err = c.Status(500).JSON(fiber.Map{"data": nil, "error": helpers.NewError("internal_server_error")})
 			}
 		}()
-		c.Next()
+		return c.Next()
 	}
 }

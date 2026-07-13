@@ -1,24 +1,42 @@
-FROM golang:latest AS builder
+FROM golang:1.26-alpine AS builder
+
+RUN apk add --no-cache git make
 
 WORKDIR /go/src/app
 
-COPY . .
+# Install swagger tool (cached unless Go version changes)
+RUN go install github.com/swaggo/swag/cmd/swag@latest
 
-RUN --mount=type=cache,target=/root/.cache/go-build GOOS=linux GOARCH=amd64 go build -v -o bin/ip_service -ldflags \
-    "-X ip_service/pkg/model.BuildVariableGitCommit=$(git rev-list -1 HEAD) \
-    -X ip_service/pkg/model.BuildVariableGitBranch=$(git rev-parse --abbrev-ref HEAD) \
+# Copy dependency files first for layer caching
+COPY go.mod go.sum ./
+COPY vendor/ vendor/
+
+# Copy source code and build files
+COPY cmd/ cmd/
+COPY internal/ internal/
+COPY pkg/ pkg/
+COPY docs/ docs/
+COPY Makefile .
+
+RUN make swagger
+
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ip_service -ldflags \
+    "-X ip_service/pkg/model.BuildVariableGitCommit=${GIT_COMMIT} \
+    -X ip_service/pkg/model.BuildVariableGitBranch=${GIT_BRANCH} \
     -X ip_service/pkg/model.BuildVariableTimestamp=$(date +'%F:T%TZ') \
     -X ip_service/pkg/model.BuildVariableGoVersion=$(go version|awk '{print $3}') \
     -X ip_service/pkg/model.BuildVariableGoArch=$(go version|awk '{print $4}') \
-    -w -s --extldflags '-static'" ./cmd/main.go
+    -w -s" ./cmd/ip_service/main.go
 
 ## Deploy
-FROM debian:bookworm-slim
+FROM alpine:3.21
+
+RUN apk add --no-cache curl procps iputils less
 
 WORKDIR /
-
-RUN apt-get update && apt-get install -y curl procps iputils-ping less
-RUN rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /go/src/app/bin/ip_service /ip_service
 

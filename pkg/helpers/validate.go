@@ -1,10 +1,6 @@
 package helpers
 
 import (
-	"context"
-	"ip_service/pkg/logger"
-	"ip_service/pkg/model"
-	"ip_service/pkg/trace"
 	"reflect"
 	"strings"
 
@@ -28,15 +24,7 @@ func NewValidator() (*validator.Validate, error) {
 }
 
 // Check checks for validation error
-func Check(ctx context.Context, cfg *model.Cfg, s any, log *logger.Log) error {
-	tp, err := trace.New(ctx, cfg, log, "ip_service", "helpers:check")
-	if err != nil {
-		return err
-	}
-
-	_, span := tp.Start(ctx, "helpers:check")
-	defer span.End()
-
+func Check(s any) error {
 	validate, err := NewValidator()
 	if err != nil {
 		return err

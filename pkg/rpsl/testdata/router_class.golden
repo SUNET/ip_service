@@ -1,0 +1,24 @@
+#
+# The contents of this file are subject to 
+# RIPE Database Terms and Conditions
+#
+# https://docs.db.ripe.net/terms-conditions.html
+#
+
+route:          193.254.30.0/24
+origin:         AS12726
+
+route:          212.166.64.0/19
+origin:         AS12321
+
+route:          212.166.64.0/19
+origin:         AS12541
+
+route:          195.2.0.0/19
+origin:         AS1273
+
+route:          212.44.224.0/19
+origin:         AS8921
+
+route:          212.80.176.0/29
+origin:         AS12541

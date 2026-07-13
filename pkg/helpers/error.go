@@ -26,6 +26,10 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("Error: [%s] %+v", e.Title, e.Details)
 }
 
+type ErrorResponse struct {
+	Error *Error `json:"error"`
+}
+
 // NewError creates a new Error
 func NewError(id string) *Error {
 	return &Error{Title: id}
@@ -84,11 +88,8 @@ func formatJSONUnmarshalTypeError(err *json.UnmarshalTypeError) []map[string]any
 }
 
 // Problem404 creates a new 404 problem
-func Problem404() (*problems.DefaultProblem, error) {
-	notFound := problems.NewDetailedProblem(404, "Not a valid endpoint")
-	if err := problems.ValidateProblem(notFound); err != nil {
-		return nil, err
-	}
+func Problem404() *problems.Problem {
+	problem := problems.NewStatusProblem(404)
 
-	return notFound, nil
+	return problem
 }

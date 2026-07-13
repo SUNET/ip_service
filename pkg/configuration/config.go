@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"ip_service/pkg/helpers"
-	"ip_service/pkg/logger"
+	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
 	"os"
 	"path/filepath"
@@ -47,7 +47,7 @@ func Parse(ctx context.Context, logger *logger.Log) (*model.Cfg, error) {
 		return nil, err
 	}
 
-	if err := helpers.Check(ctx, config, config, logger); err != nil {
+	if err := helpers.Check(config); err != nil {
 		return nil, err
 	}
 

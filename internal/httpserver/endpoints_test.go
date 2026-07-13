@@ -7,21 +7,21 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"ip_service/internal/apiv1"
 	"ip_service/internal/maxmind"
+	"ip_service/internal/store"
+	"ip_service/internal/whois"
 	"ip_service/pkg/contexthandler"
-	"ip_service/pkg/logger"
 	"ip_service/pkg/model"
-	"ip_service/pkg/trace"
 
-	"github.com/gin-gonic/gin"
+	"github.com/SUNET/vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/trace"
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/go-cmp/cmp"
 	ua "github.com/mileusna/useragent"
 	"github.com/oschwald/geoip2-golang"
@@ -48,10 +48,13 @@ var (
 		Region:          "",
 		RegionCode:      "",
 		PostalCode:      "",
-		Latitude:        58.4167,
-		Longitude:       15.6167,
-		Timezone:        "Europe/Stockholm",
-		Hostname:        "",
+		Coordinates: &model.Coordinates{
+			Latitude:  58.4167,
+			Longitude: 15.6167,
+		},
+		Continent: "Europe",
+		Timezone:  "Europe/Stockholm",
+		Hostname:  "",
 		UserAgent: ua.UserAgent{
 			Name:      "test-application",
 			Version:   "3.14.15",
@@ -65,7 +68,6 @@ var (
 			URL:       "",
 			String:    "",
 		},
-		Continent: "Europe",
 	}
 )
 
@@ -80,166 +82,189 @@ func mockHTMLTemplate(t *testing.T) string {
 }
 
 func mockService(t *testing.T) *Service {
+	ctx := context.TODO()
 	dbCity, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-city-Test.mmdb"))
 	assert.NoError(t, err)
 
 	dbASN, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-asn-Test.mmdb"))
 	assert.NoError(t, err)
 
-	tracer, err := trace.NoTracing(context.TODO())
+	tracer, err := trace.NewForTesting(ctx, "test", logger.NewSimple("test"))
 	assert.NoError(t, err)
 
 	maxmind := &maxmind.Service{
 		DBCity: dbCity,
 		DBASN:  dbASN,
 		TP:     tracer,
+		Log:    logger.NewSimple("test-maxmind"),
 		DBMeta: map[string]*maxmind.DBObject{
-			"city": {
+			model.MaxmindDBTypeASN: {
 				MU: sync.RWMutex{},
 			},
-			"asn": {
+			model.MaxmindDBTypeCity: {
 				MU: sync.RWMutex{},
 			},
 		},
 	}
+	whois := &whois.Service{}
 
-	apiv1, err := apiv1.New(context.TODO(), maxmind, nil, nil, tracer, logger.NewSimple("test-api"))
+	store := &store.Service{}
+
+	cfg := &model.Cfg{}
+
+	apiv1, err := apiv1.New(ctx, maxmind, whois, store, cfg, tracer, logger.NewSimple("test-api"))
 	assert.NoError(t, err)
 
 	s := &Service{
-		config: &model.Cfg{},
-		logger: &logger.Log{},
-		TP:     tracer,
-		server: &http.Server{
-			ReadHeaderTimeout: 1 * time.Second,
-		},
-		apiv1: apiv1,
-		gin:   &gin.Engine{},
+		config:  &model.Cfg{},
+		logger:  logger.NewSimple("test-httpserver"),
+		TP:      tracer,
+		metrics: &metrics{},
+		apiv1:   apiv1,
 	}
+
+	s.metrics.init()
 
 	return s
 }
 
-func (s *Service) mockEndpointIndexPlain(c *gin.Context) {
-	reply, err := s.endpointIndex(context.TODO(), c)
-	if err != nil {
-		panic(err)
-	}
-	_, err = c.Writer.WriteString(fmt.Sprintf("%v", reply))
-	if err != nil {
-		panic(err)
-	}
+func mockContextRequest(accept string) context.Context {
+	return contexthandler.Add(context.TODO(), "request", &contexthandler.RequestContext{
+		ClientIP:  mockIP,
+		UserAgent: mockUserAgent,
+		Accept:    accept,
+	})
 }
 
-func (s *Service) mockEndpointIndexJSON(c *gin.Context) {
-	reply, err := s.endpointIndex(context.TODO(), c)
+func (s *Service) mockEndpointIndexPlain(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEPlain)
+
+	reply, err := s.endpointIndex(ctx, c)
 	if err != nil {
-		panic(err)
+		s.logger.Error(err, "mockEndpointIndexPlain")
 	}
-	c.JSON(200, reply)
+	s.logger.Debug("mockEndpointIndexPlain", "reply", reply)
+	return c.SendString(fmt.Sprintf("%s", reply))
 }
 
-func (s *Service) mockEndpointIndexHTML(c *gin.Context) {
-	reply, err := s.endpointIndex(context.TODO(), c)
+func (s *Service) mockEndpointIndexJSON(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEJSON)
+
+	reply, err := s.endpointIndex(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	c.HTML(http.StatusOK, "index.html", reply.(*model.ReplyIPInformation))
+	return c.JSON(reply)
 }
 
-func (s *Service) mockEndpointCityPlain(c *gin.Context) {
-	reply, err := s.endpointCity(context.TODO(), c)
+func (s *Service) mockEndpointIndexHTML(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEHTML)
+
+	reply, err := s.endpointIndex(ctx, c)
 	if err != nil {
-		panic(err)
+		fmt.Println("error:", err)
 	}
-	_, err = c.Writer.WriteString(fmt.Sprintf("%s", reply))
-	if err != nil {
-		panic(err)
-	}
+	return c.Render("index", reply.(*model.ReplyIPInformation))
 }
 
-func (s *Service) mockEndpointCityJSON(c *gin.Context) {
-	reply, err := s.endpointCity(context.TODO(), c)
+func (s *Service) mockEndpointCityPlain(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEPlain)
+
+	reply, err := s.endpointCity(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	c.JSON(200, reply)
+	return c.SendString(fmt.Sprintf("%s", reply))
 }
 
-func (s *Service) mockEndpointCountryPlain(c *gin.Context) {
-	reply, err := s.endpointCountry(context.TODO(), c)
+func (s *Service) mockEndpointCityJSON(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEJSON)
+
+	reply, err := s.endpointCity(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.Writer.WriteString(fmt.Sprintf("%s", reply))
-	if err != nil {
-		panic(err)
-	}
+	return c.JSON(reply)
 }
 
-func (s *Service) mockEndpointCountryJSON(c *gin.Context) {
-	reply, err := s.endpointCountry(context.TODO(), c)
+func (s *Service) mockEndpointCountryPlain(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEPlain)
+
+	reply, err := s.endpointCountry(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	c.JSON(200, reply)
+	return c.SendString(fmt.Sprintf("%s", reply))
 }
 
-func (s *Service) mockEndpointCountryISOPlain(c *gin.Context) {
-	reply, err := s.endpointCountryISO(context.TODO(), c)
+func (s *Service) mockEndpointCountryJSON(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEJSON)
+
+	reply, err := s.endpointCountry(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.Writer.WriteString(fmt.Sprintf("%s", reply))
-	if err != nil {
-		panic(err)
-	}
+	return c.JSON(reply)
 }
 
-func (s *Service) mockEndpointCountryISOJSON(c *gin.Context) {
-	reply, err := s.endpointCountryISO(context.TODO(), c)
+func (s *Service) mockEndpointCountryISOPlain(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEPlain)
+
+	reply, err := s.endpointCountryISO(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	c.JSON(200, reply)
+	return c.SendString(fmt.Sprintf("%s", reply))
 }
 
-func (s *Service) mockEndpointASNPlain(c *gin.Context) {
-	reply, err := s.endpointASN(context.TODO(), c)
+func (s *Service) mockEndpointCountryISOJSON(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEJSON)
+
+	reply, err := s.endpointCountryISO(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.Writer.WriteString(fmt.Sprintf("%v", reply))
-	if err != nil {
-		panic(err)
-	}
+	return c.JSON(reply)
 }
 
-func (s *Service) mockEndpointASNJSON(c *gin.Context) {
-	reply, err := s.endpointASN(context.TODO(), c)
+func (s *Service) mockEndpointASNPlain(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEPlain)
+
+	reply, err := s.endpointASN(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	c.JSON(200, reply)
+	return c.SendString(fmt.Sprintf("%v", reply))
 }
 
-func (s *Service) mockEndpointCoordinatesPlain(c *gin.Context) {
-	reply, err := s.endpointCoordinates(context.TODO(), c)
+func (s *Service) mockEndpointASNJSON(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEJSON)
+
+	reply, err := s.endpointASN(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.Writer.WriteString(fmt.Sprintf("%v", reply))
-	if err != nil {
-		panic(err)
-	}
+	return c.JSON(reply)
 }
 
-func (s *Service) mockEndpointCoordinatesJSON(c *gin.Context) {
-	reply, err := s.endpointCoordinates(context.TODO(), c)
+func (s *Service) mockEndpointCoordinatesPlain(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEPlain)
+
+	reply, err := s.endpointCoordinates(ctx, c)
 	if err != nil {
 		panic(err)
 	}
-	c.JSON(200, reply)
+	return c.SendString(fmt.Sprintf("%v", reply))
+}
+
+func (s *Service) mockEndpointCoordinatesJSON(c *fiber.Ctx) error {
+	ctx := mockContextRequest(MIMEJSON)
+
+	reply, err := s.endpointCoordinates(ctx, c)
+	if err != nil {
+		panic(err)
+	}
+	return c.JSON(reply)
 }
 
 func TestEndpoints(t *testing.T) {
@@ -247,7 +272,7 @@ func TestEndpoints(t *testing.T) {
 	type have struct {
 		path           string
 		requestContext *contexthandler.RequestContext
-		httpHandler    func(c *gin.Context)
+		httpHandler    fiber.Handler
 	}
 	tts := []struct {
 		name string
@@ -259,8 +284,7 @@ func TestEndpoints(t *testing.T) {
 			have: have{
 				path: "/",
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
-					LookupIP:  "",
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -273,7 +297,7 @@ func TestEndpoints(t *testing.T) {
 			have: have{
 				path: "/",
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -288,7 +312,7 @@ func TestEndpoints(t *testing.T) {
 			have: have{
 				path: "/",
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -300,7 +324,7 @@ func TestEndpoints(t *testing.T) {
 			name: "city/plain",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -313,7 +337,7 @@ func TestEndpoints(t *testing.T) {
 			name: "city/json",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -328,7 +352,7 @@ func TestEndpoints(t *testing.T) {
 			name: "city/plain",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -341,7 +365,7 @@ func TestEndpoints(t *testing.T) {
 			name: "country/json",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -356,7 +380,7 @@ func TestEndpoints(t *testing.T) {
 			name: "countryISO/plain",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -369,7 +393,7 @@ func TestEndpoints(t *testing.T) {
 			name: "countryISO/json",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -384,7 +408,7 @@ func TestEndpoints(t *testing.T) {
 			name: "ASN/plain",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -397,7 +421,7 @@ func TestEndpoints(t *testing.T) {
 			name: "ASN/json",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -412,7 +436,7 @@ func TestEndpoints(t *testing.T) {
 			name: "coordinate/plain",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -425,7 +449,7 @@ func TestEndpoints(t *testing.T) {
 			name: "coordinate/json",
 			have: have{
 				requestContext: &contexthandler.RequestContext{
-					ClientIP:  mockIPWithPort,
+					ClientIP:  mockIP,
 					UserAgent: mockUserAgent,
 					Accept:    mockAcceptHeader,
 				},
@@ -443,42 +467,58 @@ func TestEndpoints(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			gin.SetMode(gin.TestMode)
+			app := fiber.New(fiber.Config{
+				Views:                 newTestViewEngine(t),
+				DisableStartupMessage: true,
+			})
 
-			r := gin.Default()
-			r.LoadHTMLGlob("../../templates/*.html")
-			r.Static("/assets", "./assets")
+			app.Get(tt.have.path, tt.have.httpHandler)
 
-			r.GET(tt.have.path, tt.have.httpHandler)
+			req := httptest.NewRequest("GET", tt.have.path, nil)
+			req.Header.Set("User-Agent", tt.have.requestContext.UserAgent)
+			req.Header.Set("Accept", tt.have.requestContext.Accept)
+			req.RemoteAddr = mockIPWithPort
 
-			req, err := http.NewRequest("GET", tt.have.path, nil)
+			resp, err := app.Test(req, -1)
 			assert.NoError(t, err)
 
-			req.Header.Set("user-agent", tt.have.requestContext.UserAgent)
-			req.Header.Set("Accept", tt.have.requestContext.Accept)
-			req.RemoteAddr = tt.have.requestContext.ClientIP
-
-			w := httptest.NewRecorder()
-
-			r.ServeHTTP(w, req)
-			got, err := io.ReadAll(w.Body)
+			got, err := io.ReadAll(resp.Body)
 			assert.NoError(t, err)
 
 			switch tt.have.requestContext.Accept {
-			case gin.MIMEJSON:
+			case MIMEJSON:
 				v := map[string]any{}
 				err := json.Unmarshal(got, &v)
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, v)
 
-			case gin.MIMEPlain:
+			case MIMEPlain:
+				t.Logf("got:  %q", string(got))
 				assert.Equal(t, tt.want, string(got))
 
-			case "*/*", gin.MIMEHTML:
+			case "*/*", MIMEHTML:
 				if diff := cmp.Diff(tt.want, string(got)); diff != "" {
 					t.Errorf("mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
 	}
+}
+
+// newTestViewEngine creates an html template engine for tests
+func newTestViewEngine(t *testing.T) *testViewEngine {
+	t.Helper()
+	return &testViewEngine{}
+}
+
+type testViewEngine struct{}
+
+func (e *testViewEngine) Load() error { return nil }
+
+func (e *testViewEngine) Render(w io.Writer, name string, data interface{}, layout ...string) error {
+	tmpl, err := template.ParseFiles("../../templates/" + name + ".html")
+	if err != nil {
+		return err
+	}
+	return tmpl.Execute(w, data)
 }

@@ -1,136 +1,108 @@
 package maxmind
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
 	"io"
-	"ip_service/pkg/helpers"
+	"ip_service/pkg/model"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/oschwald/geoip2-golang"
-	"github.com/schollz/progressbar/v3"
 	"go.opentelemetry.io/otel/codes"
 )
 
-func (s *Service) dbDownloader(ctx context.Context, dbType string) error {
+func (s *Service) downloadArchive(ctx context.Context, dbType string) error {
+	s.Log.Info("downloadArchive", "dbType", dbType)
+
 	ctx, span := s.TP.Start(ctx, "maxmind:dbDownloader")
 	defer span.End()
 
-	s.log.Info("downloading database file", "dbType", dbType)
+	s.DBMeta.DownloadInProgress(dbType)
+	defer s.DBMeta.DownloadingDone(dbType)
 
-	httpClient := http.Client{
-		Timeout: 60 * time.Second,
-	}
+	s.Log.Info("downloading database file", "dbType", dbType)
 
 	if !s.DBMeta[dbType].rateLimit.Allow() {
 		return fmt.Errorf("rate limit exceeded")
 	}
 
-	resp, err := httpClient.Get(fmt.Sprintf(s.DBMeta[dbType].urlDB, s.cfg.IPService.MaxMind.LicenseKey))
+	remoteURL, err := s.cfg.IPService.MaxMind.URL(dbType)
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	s.Log.Info("Downloading", "url", remoteURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, remoteURL, nil)
+	if err != nil {
+		return err
+	}
+
+	req.SetBasicAuth(s.cfg.IPService.MaxMind.Username, s.cfg.IPService.MaxMind.Password)
+
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	out, err := os.Create(fmt.Sprintf("geoip_database_%s.tar.gz", dbType))
+	if resp.StatusCode == 429 {
+		s.Log.Error(err, "remote rate limit exceeded", "dbType", dbType)
+		return errors.New("remote rate limit exceeded")
+
+	}
+
+	s.Log.Debug("downloadArchive", "path", s.cfg.IPService.MaxMind.ArchiveFilePath(dbType))
+
+	archiveFile, err := os.OpenFile(s.cfg.IPService.MaxMind.ArchiveFilePath(dbType), os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		s.Log.Error(err, "open file")
+		return err
+	}
+	defer archiveFile.Close()
+
+	//bar := progressbar.DefaultBytes(resp.ContentLength, fmt.Sprintf("downloading %s", dbType))
+	_, err = io.Copy(archiveFile, resp.Body)
+	if err != nil {
+		s.Log.Error(err, "copy to broke")
+		return err
+	}
+
+	s.Log.Info("download finished", "dbType", dbType)
+	stat, err := archiveFile.Stat()
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	fmt.Println("stat size!!!!!!", dbType, stat.Size())
 
-	bar := progressbar.DefaultBytes(
-		-1,
-		"downloading",
-	)
-
-	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
-	if err != nil {
-		return err
+	if !s.cfg.IPService.MaxMind.IsArchivePresent(dbType) {
+		return fmt.Errorf("archive file missing dbType: %s", dbType)
 	}
 
-	s.log.Info("UnTar", "dbType", dbType)
-	if err := s.unTAR(ctx, dbType); err != nil {
+	s.Log.Info("UnTar", "dbType", dbType)
+	//if err := s.unTAR(ctx, dbType); err != nil {
+	if err := s.unTarV3(ctx, dbType); err != nil {
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
-	s.log.Info("Cleanup tar archive for database", "dbType", dbType)
-	if err := s.cleanUpTarArchive(ctx, dbType); err != nil {
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
+	s.reloadChan <- dbType
 
 	return nil
 }
 
-func (s *Service) cleanUpTarArchive(ctx context.Context, dbType string) error {
-	_, span := s.TP.Start(ctx, "maxmind:cleanUpTarArchive")
-	defer span.End()
-
-	return os.Remove(fmt.Sprintf("geoip_database_%s.tar.gz", dbType))
-}
-
-func (s *Service) unTAR(ctx context.Context, dbType string) error {
-	_, span := s.TP.Start(ctx, "maxmind:unTAR")
-	defer span.End()
-
-	file, err := os.Open(fmt.Sprintf("geoip_database_%s.tar.gz", dbType))
+func (s *Service) parseHeader(ctx context.Context, resp *http.Response) (string, error) {
+	remoteLastMod, err := time.Parse(time.RFC1123, resp.Header.Get("last-modified"))
 	if err != nil {
-		return err
+		return "", err
 	}
-	gzr, err := gzip.NewReader(file)
-	if err != nil {
-		return err
-	}
-	defer gzr.Close()
 
-	tr := tar.NewReader(gzr)
-
-	for {
-		header, err := tr.Next()
-		switch {
-		case err == io.EOF:
-			return nil
-		case err != nil:
-			return err
-		case header == nil:
-			continue
-		case filepath.Base(header.Name) != fmt.Sprintf("GeoLite2-%s.mmdb", dbType):
-			continue
-		}
-
-		target := filepath.Join("db", filepath.Base(header.Name))
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			s.log.Error(errors.New("is a dir, needs to be a file"), "unTAR")
-			if _, err := os.Stat(header.Name); err != nil {
-				if err := os.MkdirAll(target, 0750); err != nil {
-					return err
-				}
-			}
-		case tar.TypeReg:
-			file, err := os.OpenFile(filepath.Clean(target), os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-			if err != nil {
-				return err
-			}
-
-			if _, err := io.CopyN(file, tr, 90000000); err != nil {
-				return err
-			}
-
-			if err := file.Close(); err != nil {
-				return err
-			}
-		}
-	}
+	return remoteLastMod.String(), nil
 }
 
 // getRemoteVersion retrieve the latest remote version.
@@ -138,28 +110,40 @@ func (s *Service) getRemoteVersion(ctx context.Context, dbType string) (string, 
 	_, span := s.TP.Start(ctx, "maxmind:getRemoteVersion")
 	defer span.End()
 
-	resp, err := http.Head(fmt.Sprintf(s.DBMeta[dbType].urlDB, s.cfg.IPService.MaxMind.LicenseKey))
+	remoteURL, err := s.cfg.IPService.MaxMind.URL(dbType)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, remoteURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
+		s.Log.Error(err, "http head request failed")
 		return "", err
 	}
 
 	if resp.StatusCode != 200 {
 		err := fmt.Errorf("errors http status code: %d", resp.StatusCode)
 		if resp.StatusCode == 429 {
-			err = fmt.Errorf("rate limit exceeded")
+			return "", errors.New("remote rate limit exceeded")
 		}
 		span.SetStatus(codes.Error, err.Error())
 		return "", err
 	}
 
-	remoteLastMod, err := time.Parse(time.RFC1123, resp.Header.Get("last-modified"))
+	remoteLastMod, err := s.parseHeader(ctx, resp)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 		return "", err
 	}
 
-	return remoteLastMod.String(), nil
+	return remoteLastMod, nil
 }
 
 func (s *Service) checkNewDBVersion(ctx context.Context, dbType string) bool {
@@ -191,7 +175,7 @@ func (s *Service) compareVersion(ctx context.Context, dbType string) (bool, erro
 	local := s.kvStore.GetRemoteVersion(ctx, dbType)
 
 	if remote == local {
-		s.log.Info("No new maxmind database version found", "local_version", local, "remote_version", remote, "dbType", dbType)
+		s.Log.Info("No new maxmind database version found", "local_version", local, "remote_version", remote, "dbType", dbType)
 		return false, nil
 	}
 
@@ -199,7 +183,7 @@ func (s *Service) compareVersion(ctx context.Context, dbType string) (bool, erro
 		return true, err
 	}
 
-	s.log.Info("New version of MaxMind database found", "version", remote)
+	s.Log.Info("New version of MaxMind database found", "version", remote)
 
 	return true, nil
 }
@@ -208,27 +192,37 @@ func (s *Service) initial(ctx context.Context, dbType string) error {
 	ctx, span := s.TP.Start(ctx, "maxmind:initial")
 	defer span.End()
 
-	// try a optimistic load of database file, if not present notify the download channel
-	if err := s.loadDB(ctx, dbType); err != nil {
-		if errors.Is(err, helpers.ErrMissingDBFile) {
-			s.log.Info("Database file not found", "dbType", dbType)
+	s.Log.Info("Initial", "dbType", dbType)
+
+	if s.cfg.IPService.MaxMind.IsArchivePresent(dbType) {
+		s.Log.Info("Archive file already exists", "dbType", dbType)
+
+		if err := s.unTarV3(ctx, dbType); err != nil {
+			return err
+		}
+
+		s.Log.Info("LoadDB")
+		if err := s.loadDB(ctx, dbType); err != nil {
+			s.Log.Error(err, "loadDB")
+			return err
+		}
+
+		if !s.cfg.IPService.MaxMind.IsDBPresent(dbType) {
+			s.Log.Info("Database file not found", "dbType", dbType)
 			s.downloadChan <- dbType
 			return nil
+
 		}
-		return err
+
+	} else if !s.cfg.IPService.MaxMind.IsDBPresent(dbType) {
+		//	} else if s.isDBFileMissing(ctx, dbType) {
+		s.Log.Info("Archive file not found", "dbType", dbType)
+		s.Log.Info("Downloading database file", "dbType", dbType)
+		s.downloadChan <- dbType
 	}
 
 	return nil
-}
-func (s *Service) dbFilesMissing(ctx context.Context, dbType string) bool {
-	_, span := s.TP.Start(ctx, "maxmind:dbFilesMissing")
-	defer span.End()
 
-	if _, err := os.Stat(s.DBMeta[dbType].filePath); errors.Is(err, os.ErrNotExist) {
-		return true
-	}
-
-	return false
 }
 
 // City return a city object from ip
@@ -236,21 +230,34 @@ func (s *Service) City(ctx context.Context, ip net.IP) (*geoip2.City, error) {
 	_, span := s.TP.Start(ctx, "maxmind:City")
 	defer span.End()
 
-	s.DBMeta["city"].MU.RLock()
-	defer s.DBMeta["city"].MU.RUnlock()
+	s.DBMeta["City"].MU.RLock()
+	defer s.DBMeta["City"].MU.RUnlock()
 
 	return s.DBCity.City(ip)
 }
 
 // ASN return information about the ASN
 func (s *Service) ASN(ctx context.Context, ip net.IP) (*geoip2.ASN, error) {
+	s.Log.Debug("maxmind:ASN")
 	_, span := s.TP.Start(ctx, "maxmind:City")
 	defer span.End()
 
-	s.DBMeta["asn"].MU.RLock()
-	defer s.DBMeta["asn"].MU.RUnlock()
+	s.Log.Debug("maxmind:ASN before RLock", "ip", ip.String())
 
-	return s.DBASN.ASN(ip)
+	s.DBMeta[model.MaxmindDBTypeASN].MU.RLock()
+	defer s.DBMeta[model.MaxmindDBTypeASN].MU.RUnlock()
+
+	s.Log.Debug("maxmind:ASN after RUnlock")
+
+	asn, err := s.DBASN.ASN(ip)
+	if err != nil {
+		s.Log.Error(err, "failed to get ASN")
+		return nil, err
+	}
+
+	s.Log.Debug("maxmind:ASN done")
+
+	return asn, nil
 }
 
 // ISP return information about the ISP
@@ -258,10 +265,16 @@ func (s *Service) ISP(ctx context.Context, ip net.IP) (*geoip2.ISP, error) {
 	_, span := s.TP.Start(ctx, "maxmind:ISP")
 	defer span.End()
 
-	s.DBMeta["city"].MU.RLock()
-	defer s.DBMeta["city"].MU.RUnlock()
+	s.DBMeta["City"].MU.RLock()
+	defer s.DBMeta["City"].MU.RUnlock()
 
-	return s.DBCity.ISP(ip)
+	isp, err := s.DBCity.ISP(ip)
+	if err != nil {
+		s.Log.Error(err, "failed to get ISP")
+		return nil, err
+	}
+
+	return isp, nil
 }
 
 // AnonymousIP return information about any anonymous services
@@ -269,8 +282,14 @@ func (s *Service) AnonymousIP(ctx context.Context, ip net.IP) (*geoip2.Anonymous
 	_, span := s.TP.Start(ctx, "maxmind:AnonymousIP")
 	defer span.End()
 
-	s.DBMeta["city"].MU.RLock()
-	defer s.DBMeta["city"].MU.RUnlock()
+	s.DBMeta[model.MaxmindDBTypeCity].MU.RLock()
+	defer s.DBMeta[model.MaxmindDBTypeCity].MU.RUnlock()
 
-	return s.DBCity.AnonymousIP(ip)
+	asnIP, err := s.DBASN.AnonymousIP(ip)
+	if err != nil {
+		s.Log.Error(err, "failed to get AnonymousIP")
+		return nil, err
+	}
+
+	return asnIP, nil
 }
