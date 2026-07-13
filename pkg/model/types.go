@@ -42,6 +42,7 @@ type ReplyLookUp struct {
 	Coordinates     *Coordinates            `json:"coordinates"`
 	Timezone        string                  `json:"timezone"`
 	Hostname        string                  `json:"hostname"`
+	PTR             string                  `json:"ptr"`
 	Continent       string                  `json:"continent"`
 	Whois           map[string]*rpsl.Object `json:"whois,omitempty"`
 }
