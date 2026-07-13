@@ -233,13 +233,17 @@ func (s *Service) City(ctx context.Context, ip net.IP) (*geoip2.City, error) {
 	s.DBMeta["City"].MU.RLock()
 	defer s.DBMeta["City"].MU.RUnlock()
 
+	if s.DBCity == nil {
+		return nil, errors.New("city database not available")
+	}
+
 	return s.DBCity.City(ip)
 }
 
 // ASN return information about the ASN
 func (s *Service) ASN(ctx context.Context, ip net.IP) (*geoip2.ASN, error) {
 	s.Log.Debug("maxmind:ASN")
-	_, span := s.TP.Start(ctx, "maxmind:City")
+	_, span := s.TP.Start(ctx, "maxmind:ASN")
 	defer span.End()
 
 	s.Log.Debug("maxmind:ASN before RLock", "ip", ip.String())
@@ -248,6 +252,10 @@ func (s *Service) ASN(ctx context.Context, ip net.IP) (*geoip2.ASN, error) {
 	defer s.DBMeta[model.MaxmindDBTypeASN].MU.RUnlock()
 
 	s.Log.Debug("maxmind:ASN after RUnlock")
+
+	if s.DBASN == nil {
+		return nil, errors.New("ASN database not available")
+	}
 
 	asn, err := s.DBASN.ASN(ip)
 	if err != nil {

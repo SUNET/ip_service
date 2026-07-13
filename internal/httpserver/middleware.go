@@ -9,6 +9,17 @@ import (
 	"github.com/lithammer/shortuuid/v4"
 )
 
+const defaultRequestTimeout = 30 * time.Second
+
+func (s *Service) middlewareTimeout(ctx context.Context) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(c.UserContext(), defaultRequestTimeout)
+		defer cancel()
+		c.SetUserContext(ctx)
+		return c.Next()
+	}
+}
+
 func (s *Service) middlewareDuration(ctx context.Context) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		t := time.Now()

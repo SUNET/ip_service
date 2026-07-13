@@ -106,8 +106,8 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, tp *trace.Tr
 	for dbType := range s.DBMeta {
 		s.Log.Info("init db", "dbType", dbType)
 		if err := s.initial(ctx, dbType); err != nil {
-			s.Log.Error(err, "failed to initialize db", "dbType", dbType)
-			return nil, err
+			s.Log.Error(err, "failed to initialize db, will retry in background", "dbType", dbType)
+			s.downloadChan <- dbType
 		}
 	}
 

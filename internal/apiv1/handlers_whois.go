@@ -7,7 +7,7 @@ import (
 )
 
 type WhoisRequest struct {
-	IP string `uri:"ip"`
+	IP string `uri:"ip" validate:"required,ip"`
 }
 
 // Whois handler return whois information in JSON format
@@ -37,17 +37,6 @@ func (c *Client) Whois(ctx context.Context, indata *WhoisRequest) ([]rpsl.ASN, e
 		c.log.Error(err, "failed to get route info from whois", "ip", indata.IP)
 		return nil, err
 	}
-
-	//whoisReply, err := c.whois.QueryIP(ctx, indata.IP)
-	//if err != nil {
-	//	c.log.Error(err, "failed to get route info from whois", "ip", indata.IP)
-	//	return nil, err
-	//}
-
-	//if whoisReply == nil {
-	//	c.log.Info("no whois information found for ip", "ip", indata.IP)
-	//	return nil, helpers.ErrIpNotFound
-	//}
 
 	return reply, nil
 }
