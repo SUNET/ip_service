@@ -77,7 +77,7 @@ func TestIPText(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			ctx = contexthandler.Add(ctx, "request", tt.have)
 			client := mockClient(t)
 			got, err := client.IPText(ctx)

@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"mime"
@@ -164,6 +165,20 @@ func (s *Service) clientIP(c *fiber.Ctx) string {
 	return c.Context().RemoteIP().String()
 }
 
+// statusForError maps handler errors to an HTTP status code.
+// Request-scoped deadline/cancel errors from the timeout middleware map to
+// timeout/client-closed statuses so clients can distinguish them from bad input.
+func statusForError(err error) int {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return http.StatusGatewayTimeout
+	case errors.Is(err, context.Canceled):
+		return http.StatusRequestTimeout
+	default:
+		return http.StatusBadRequest
+	}
+}
+
 func (s *Service) regEndpoint(ctx context.Context, method, path string, handler func(context.Context, *fiber.Ctx) (any, error)) {
 	s.app.Add(method, path, func(c *fiber.Ctx) error {
 		// Use the request-scoped context (carries timeout from middleware)
@@ -178,7 +193,7 @@ func (s *Service) regEndpoint(ctx context.Context, method, path string, handler 
 		})
 		res, err := handler(reqCtx, c)
 		if err != nil {
-			return c.Status(400).JSON(fiber.Map{"data": nil, "error": helpers.NewErrorFromError(err)})
+			return c.Status(statusForError(err)).JSON(fiber.Map{"data": nil, "error": helpers.NewErrorFromError(err)})
 		}
 
 		requestValues, err := contexthandler.Get(reqCtx, "request")

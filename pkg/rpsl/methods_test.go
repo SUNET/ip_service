@@ -1,7 +1,6 @@
 package rpsl
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -22,7 +21,7 @@ func TestParse(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			rpslService, err := New(ctx)
 			assert.NoError(t, err)
 
@@ -149,7 +148,7 @@ func TestRouterClassOpinionatedMerge(t *testing.T) {
 
 	for _, tt := range tts {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 
 			got, err := RouterClassOpinionatedMerge(ctx, tt.r1, tt.r2)
 			assert.NoError(t, err)

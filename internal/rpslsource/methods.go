@@ -212,7 +212,9 @@ func (s *Service) unzip(ctx context.Context, dbType string) error {
 	}
 	defer outFile.Close()
 
-	if _, err = io.Copy(outFile, reader); err != nil {
+	// Cap decompressed output to guard against decompression-bomb inputs.
+	const maxDecompressedSize = 8 << 30 // 8 GiB
+	if _, err = io.Copy(outFile, io.LimitReader(reader, maxDecompressedSize)); err != nil {
 		return err
 	}
 	s.log.Info("File uncompressed", "path", localPath)

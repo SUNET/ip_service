@@ -75,33 +75,6 @@ func (c *Client) asn(ctx context.Context) (uint, error) {
 	return m.AutonomousSystemNumber, nil
 }
 
-func (c *Client) asnOrganization(ctx context.Context) (string, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return "", err
-	}
-	m, err := c.max.ASN(ctx, net.ParseIP(ip))
-	if err != nil {
-		c.log.Error(err, "failed to get ASN organization")
-		return "", err
-	}
-	return m.AutonomousSystemOrganization, nil
-}
-
-func (c *Client) postal(ctx context.Context) (string, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		c.log.Error(err, "failed to get IP")
-		return "", err
-	}
-	m, err := c.max.City(ctx, net.ParseIP(ip))
-	if err != nil {
-		c.log.Error(err, "failed to get City")
-		return "", err
-	}
-	return m.Postal.Code, nil
-}
-
 func (c *Client) city(ctx context.Context) (string, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
@@ -163,53 +136,6 @@ func (c *Client) countryISO(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return m.Country.IsoCode, nil
-}
-
-func (c *Client) isEU(ctx context.Context) (bool, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return false, err
-	}
-	m, err := c.max.City(ctx, net.ParseIP(ip))
-	if err != nil {
-		c.log.Error(err, "failed to get City for EU check")
-		return false, err
-	}
-	return m.Country.IsInEuropeanUnion, nil
-}
-
-func (c *Client) is1918Network(ctx context.Context) (bool, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return false, err
-	}
-	return net.ParseIP(ip).IsPrivate(), nil
-}
-
-func (c *Client) timezone(ctx context.Context) (string, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return "", err
-	}
-	m, err := c.max.City(ctx, net.ParseIP(ip))
-	if err != nil {
-		c.log.Error(err, "failed to get City for timezone")
-		return "", err
-	}
-	return m.Location.TimeZone, nil
-}
-
-func (c *Client) continent(ctx context.Context) (string, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return "", err
-	}
-	m, err := c.max.City(ctx, net.ParseIP(ip))
-	if err != nil {
-		c.log.Error(err, "failed to get City for continent")
-		return "", err
-	}
-	return m.Continent.Names["en"], nil
 }
 
 func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, error) {

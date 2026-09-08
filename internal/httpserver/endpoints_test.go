@@ -522,3 +522,68 @@ func (e *testViewEngine) Render(w io.Writer, name string, data interface{}, layo
 	}
 	return tmpl.Execute(w, data)
 }
+
+func TestRegEndpointErrorMapping(t *testing.T) {
+	service := mockService(t)
+	service.config = &model.Cfg{IPService: &model.IPService{APIServer: model.APIServer{}}}
+
+	t.Run("validation_error_400", func(t *testing.T) {
+		app := fiber.New(fiber.Config{DisableStartupMessage: true})
+		service.app = app
+		service.regEndpoint(context.TODO(), "GET", "/lookup/:ip", service.endpointLookUpIP)
+
+		req := httptest.NewRequest("GET", "/lookup/not-an-ip", nil)
+		req.Header.Set("Accept", MIMEJSON)
+		req.RemoteAddr = mockIPWithPort
+
+		resp, err := app.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, 400, resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		assert.NoError(t, err)
+
+		got := map[string]any{}
+		assert.NoError(t, json.Unmarshal(body, &got))
+
+		errObj, ok := got["error"].(map[string]any)
+		assert.True(t, ok, "expected error object, got %v", got)
+		assert.Equal(t, "validation_error", errObj["title"])
+
+		details, ok := errObj["details"].([]any)
+		assert.True(t, ok, "expected details array, got %v", errObj["details"])
+		assert.NotEmpty(t, details)
+		first, ok := details[0].(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "ip", first["field"])
+		assert.Equal(t, "ip", first["validation"])
+	})
+
+	tts := []struct {
+		name       string
+		handlerErr error
+		want       int
+	}{
+		{name: "deadline_exceeded_504", handlerErr: context.DeadlineExceeded, want: 504},
+		{name: "canceled_408", handlerErr: context.Canceled, want: 408},
+		{name: "other_400", handlerErr: fmt.Errorf("boom"), want: 400},
+	}
+
+	for _, tt := range tts {
+		t.Run(tt.name, func(t *testing.T) {
+			app := fiber.New(fiber.Config{DisableStartupMessage: true})
+			service.app = app
+			service.regEndpoint(context.TODO(), "GET", "/boom", func(ctx context.Context, c *fiber.Ctx) (any, error) {
+				return nil, tt.handlerErr
+			})
+
+			req := httptest.NewRequest("GET", "/boom", nil)
+			req.Header.Set("Accept", MIMEJSON)
+			req.RemoteAddr = mockIPWithPort
+
+			resp, err := app.Test(req, -1)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, resp.StatusCode)
+		})
+	}
+}

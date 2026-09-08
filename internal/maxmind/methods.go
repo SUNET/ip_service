@@ -85,7 +85,6 @@ func (s *Service) downloadArchive(ctx context.Context, dbType string) error {
 	}
 
 	s.Log.Info("UnTar", "dbType", dbType)
-	//if err := s.unTAR(ctx, dbType); err != nil {
 	if err := s.unTarV3(ctx, dbType); err != nil {
 		span.SetStatus(codes.Error, err.Error())
 		return err

@@ -26,22 +26,8 @@ func newValidator() *validator.Validate {
 	return validate
 }
 
-// NewValidator returns the shared validator instance.
-func NewValidator() (*validator.Validate, error) {
-	return defaultValidator, nil
-}
-
 // Check checks for validation error
 func Check(s any) error {
-	if err := defaultValidator.Struct(s); err != nil {
-		return NewErrorFromError(err)
-	}
-
-	return nil
-}
-
-// CheckSimple checks for validation error with a simpler signature
-func CheckSimple(s any) error {
 	if err := defaultValidator.Struct(s); err != nil {
 		return NewErrorFromError(err)
 	}
