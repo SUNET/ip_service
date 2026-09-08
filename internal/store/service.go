@@ -2,11 +2,12 @@ package store
 
 import (
 	"context"
-	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
-	"github.com/SUNET/vc/pkg/trace"
 	"strings"
 	"time"
+
+	"github.com/SUNET/vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/trace"
 
 	"github.com/peterbourgon/diskv/v3"
 )

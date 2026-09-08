@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"ip_service/pkg/helpers"
-	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
 	"os"
 	"path/filepath"
+
+	"github.com/SUNET/vc/pkg/logger"
 
 	"github.com/kelseyhightower/envconfig"
 	"gopkg.in/yaml.v2"

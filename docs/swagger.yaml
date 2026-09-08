@@ -113,6 +113,10 @@ definitions:
         type: boolean
       postal_code:
         type: string
+      ptr:
+        items:
+          type: string
+        type: array
       region:
         type: string
       region_code:
@@ -160,70 +164,6 @@ definitions:
     type: object
   rpsl.Object:
     properties:
-      abuse:
-        items:
-          type: string
-        type: array
-      abuse-c:
-        items:
-          type: string
-        type: array
-      abuse-mailbox:
-        items:
-          type: string
-        type: array
-      address:
-        items:
-          type: string
-        type: array
-      admin-c:
-        items:
-          type: string
-        type: array
-      aggr-bndry:
-        items:
-          type: string
-        type: array
-      aggr-mtd:
-        items:
-          type: string
-        type: array
-      alias:
-        items:
-          type: string
-        type: array
-      as-name:
-        items:
-          type: string
-        type: array
-      as-set:
-        items:
-          type: string
-        type: array
-      aut-num:
-        items:
-          type: string
-        type: array
-      auth:
-        items:
-          type: string
-        type: array
-      certif:
-        items:
-          type: string
-        type: array
-      changed:
-        items:
-          type: string
-        type: array
-      components:
-        items:
-          type: string
-        type: array
-      correo:
-        items:
-          type: string
-        type: array
       country:
         items:
           type: string
@@ -232,308 +172,21 @@ definitions:
         items:
           type: string
         type: array
-      dba:
-        items:
-          type: string
-        type: array
-      default:
-        items:
-          type: string
-        type: array
-      descr:
-        items:
-          type: string
-        type: array
-      e-mail:
-        items:
-          type: string
-        type: array
-      email:
-        items:
-          type: string
-        type: array
-      export:
-        items:
-          type: string
-        type: array
-      export-comps:
-        items:
-          type: string
-        type: array
-      export-via:
-        items:
-          type: string
-        type: array
-      fax-no:
-        items:
-          type: string
-        type: array
-      filter:
-        items:
-          type: string
-        type: array
-      filter-set:
-        items:
-          type: string
-        type: array
-      fingerpr:
-        items:
-          type: string
-        type: array
-      geoidx:
-        items:
-          type: string
-        type: array
-      holes:
-        items:
-          type: string
-        type: array
-      ifaddr:
-        items:
-          type: string
-        type: array
-      import:
-        items:
-          type: string
-        type: array
-      import-via:
-        items:
-          type: string
-        type: array
-      inet-rtr:
-        items:
-          type: string
-        type: array
-      inet6num:
-        items:
-          type: string
-        type: array
-      inetnum:
-        items:
-          type: string
-        type: array
-      inject:
-        items:
-          type: string
-        type: array
-      interface:
-        items:
-          type: string
-        type: array
-      ips:
-        items:
-          type: string
-        type: array
-      key-cert:
-        items:
-          type: string
-        type: array
       last-modified:
         type: string
-      local-as:
-        items:
-          type: string
-        type: array
-      mailto:
-        items:
-          type: string
-        type: array
-      mbrs-by-ref:
-        items:
-          type: string
-        type: array
-      member-of:
-        items:
-          type: string
-        type: array
-      members:
-        items:
-          type: string
-        type: array
-      method:
-        items:
-          type: string
-        type: array
-      mnt-by:
-        items:
-          type: string
-        type: array
-      mnt-lower:
-        items:
-          type: string
-        type: array
-      mnt-nfy:
-        items:
-          type: string
-        type: array
-      mnt-routes:
-        items:
-          type: string
-        type: array
-      mntner:
-        items:
-          type: string
-        type: array
-      mp-default:
-        items:
-          type: string
-        type: array
-      mp-export:
-        items:
-          type: string
-        type: array
-      mp-filter:
-        items:
-          type: string
-        type: array
-      mp-import:
-        items:
-          type: string
-        type: array
-      mp-members:
-        items:
-          type: string
-        type: array
-      mp-peer:
-        items:
-          type: string
-        type: array
-      mp-peering:
-        items:
-          type: string
-        type: array
-      netname:
-        items:
-          type: string
-        type: array
       network:
         type: string
-      nic-hdl:
-        items:
-          type: string
-        type: array
-      notify:
-        items:
-          type: string
-        type: array
       org:
-        items:
-          type: string
-        type: array
+        type: string
       org-name:
-        items:
-          type: string
-        type: array
-      org-type:
-        items:
-          type: string
-        type: array
+        type: string
       origin:
         type: string
       owner:
-        items:
-          type: string
-        type: array
-      owner-c:
-        items:
-          type: string
-        type: array
+        type: string
       ownerid:
-        items:
-          type: string
-        type: array
-      peer:
-        items:
-          type: string
-        type: array
-      peering:
-        items:
-          type: string
-        type: array
-      peering-set:
-        items:
-          type: string
-        type: array
-      person:
-        items:
-          type: string
-        type: array
-      phone:
-        items:
-          type: string
-        type: array
-      ping-hdl:
-        items:
-          type: string
-        type: array
-      pingable:
-        items:
-          type: string
-        type: array
+        type: string
       remarks:
-        items:
-          type: string
-        type: array
-      responsible:
-        items:
-          type: string
-        type: array
-      roa-uri:
-        items:
-          type: string
-        type: array
-      role:
-        items:
-          type: string
-        type: array
-      route-set:
-        description: |-
-          Route        []string `json:"route,omitempty" bson:"route,omitempty"`
-          Route6       []string `json:"route6,omitempty" bson:"route6,omitempty"`
-        items:
-          type: string
-        type: array
-      rs-in:
-        items:
-          type: string
-        type: array
-      rs-out:
-        items:
-          type: string
-        type: array
-      rtr-set:
-        items:
-          type: string
-        type: array
-      source:
-        items:
-          type: string
-        type: array
-      status:
-        items:
-          type: string
-        type: array
-      support:
-        items:
-          type: string
-        type: array
-      tech-c:
-        items:
-          type: string
-        type: array
-      tel:
-        items:
-          type: string
-        type: array
-      trouble:
-        items:
-          type: string
-        type: array
-      upd-to:
-        items:
-          type: string
-        type: array
-      website:
         items:
           type: string
         type: array

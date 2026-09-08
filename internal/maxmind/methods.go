@@ -243,7 +243,7 @@ func (s *Service) City(ctx context.Context, ip net.IP) (*geoip2.City, error) {
 // ASN return information about the ASN
 func (s *Service) ASN(ctx context.Context, ip net.IP) (*geoip2.ASN, error) {
 	s.Log.Debug("maxmind:ASN")
-	_, span := s.TP.Start(ctx, "maxmind:ASN")
+	ctx, span := s.TP.Start(ctx, "maxmind:ASN")
 	defer span.End()
 
 	s.Log.Debug("maxmind:ASN before RLock", "ip", ip.String())

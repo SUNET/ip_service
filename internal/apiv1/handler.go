@@ -238,7 +238,7 @@ func (c *Client) AllJSON(ctx context.Context) (*model.ReplyIPInformation, error)
 
 // LookUpIPRequest is the request for the LookUpIP handler
 type LookUpIPRequest struct {
-	IP string `uri:"ip" validate:"required,ip"`
+	IP string `json:"ip" uri:"ip" validate:"required,ip"`
 }
 
 // LookUpIP handler return all information in JSON format for the given IP

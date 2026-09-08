@@ -6,6 +6,7 @@ import (
 	"ip_service/pkg/model"
 	"math/big"
 	"net"
+	"sort"
 
 	ua "github.com/mileusna/useragent"
 	"inet.af/netaddr"
@@ -326,9 +327,11 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 	reply.Timezone = cityRecord.Location.TimeZone
 	reply.Continent = cityRecord.Continent.Names["en"]
 
-	// Reverse DNS lookup
+	// Always emit an array (never null) for JSON consumers.
+	reply.PTR = []string{}
 	names, err := net.DefaultResolver.LookupAddr(ctx, ip)
 	if err == nil && len(names) > 0 {
+		sort.Strings(names)
 		reply.PTR = names
 	}
 

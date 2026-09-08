@@ -5,11 +5,12 @@ import (
 	"ip_service/internal/lctree"
 	"ip_service/internal/rpslsource"
 	"ip_service/internal/store"
-	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
 	"ip_service/pkg/rpsl"
 	"sync"
 	"time"
+
+	"github.com/SUNET/vc/pkg/logger"
 )
 
 // Service struct handles whois service
@@ -48,9 +49,9 @@ func New(ctx context.Context, cfg *model.Cfg, tree *lctree.Service, store *store
 		RemoteFiles: []rpslsource.RemoteFile{
 			{Name: "radb", Path: "/radb/dbase/radb.db.gz"},
 		},
-		SerialPath:   "/radb/dbase/RADB.CURRENTSERIAL",
-		Host:     "ftp.radb.net:21",
-		FilePath: cfg.IPService.Radb.FilePath,
+		SerialPath: "/radb/dbase/RADB.CURRENTSERIAL",
+		Host:       "ftp.radb.net:21",
+		FilePath:   cfg.IPService.Radb.FilePath,
 	})
 	if err != nil {
 		return nil, err

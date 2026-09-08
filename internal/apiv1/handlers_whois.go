@@ -7,7 +7,7 @@ import (
 )
 
 type WhoisRequest struct {
-	IP string `uri:"ip" validate:"required,ip"`
+	IP string `json:"ip" uri:"ip" validate:"required,ip"`
 }
 
 // Whois handler return whois information in JSON format

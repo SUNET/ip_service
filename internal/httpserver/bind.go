@@ -14,11 +14,15 @@ func (s *Service) bindRequest(ctx context.Context, c *fiber.Ctx, v interface{}) 
 
 	// Bind JSON body if content type is JSON
 	if c.Get("Content-Type") == "application/json" {
-		_ = c.BodyParser(v)
+		if err := c.BodyParser(v); err != nil {
+			return err
+		}
 	}
 
 	// Bind query parameters
-	_ = c.QueryParser(v)
+	if err := c.QueryParser(v); err != nil {
+		return err
+	}
 
 	// Bind URI parameters (path params)
 	s.bindURIParams(c, v)
