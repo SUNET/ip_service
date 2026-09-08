@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	ua "github.com/mileusna/useragent"
 	"github.com/oschwald/geoip2-golang"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -72,7 +73,7 @@ var (
 )
 
 func mockHTMLTemplate(t *testing.T) string {
-	tmpl, err := template.ParseFiles("../../templates/index.html")
+	tmpl, err := template.ParseFiles("./templates/index.html")
 	assert.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -82,6 +83,12 @@ func mockHTMLTemplate(t *testing.T) string {
 }
 
 func mockService(t *testing.T) *Service {
+	// Swap prometheus registries so repeated mockService calls don't panic on duplicate collector registration.
+	reg := prometheus.NewRegistry()
+	prev := prometheus.DefaultRegisterer
+	prometheus.DefaultRegisterer = reg
+	t.Cleanup(func() { prometheus.DefaultRegisterer = prev })
+
 	ctx := context.TODO()
 	dbCity, err := geoip2.Open(filepath.Join("..", "..", "testdata", "GeoLite2-city-Test.mmdb"))
 	assert.NoError(t, err)
@@ -516,7 +523,7 @@ type testViewEngine struct{}
 func (e *testViewEngine) Load() error { return nil }
 
 func (e *testViewEngine) Render(w io.Writer, name string, data interface{}, layout ...string) error {
-	tmpl, err := template.ParseFiles("../../templates/" + name + ".html")
+	tmpl, err := template.ParseFiles("./templates/" + name + ".html")
 	if err != nil {
 		return err
 	}
