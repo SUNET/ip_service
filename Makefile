@@ -16,6 +16,18 @@ vulncheck:
 	$(info Run vulncheck)
 	govulncheck -show verbose ./...
 
+test:
+	$(info Run tests)
+	go test -race -count=1 ./...
+
+test-cover:
+	$(info Run tests with coverage)
+	go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out | tail -1
+
+test-cover-html: test-cover
+	go tool cover -html=coverage.out -o coverage.html
+
 start:
 	$(info Run!)
 	docker compose -f docker-compose.yaml up -d --remove-orphans
