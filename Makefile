@@ -1,4 +1,4 @@
-.PHONY: update clean build build-all run package deploy test authors dist
+.PHONY: update clean build build-all run package deploy test authors dist deadcode gh-install gh-auth
 
 gosec:
 	$(info Run gosec)
@@ -8,6 +8,9 @@ staticcheck:
 	$(info Run staticcheck)
 	staticcheck ./...
 
+deadcode:
+	$(info Run deadcode)
+	deadcode -test ./...
 
 vulncheck:
 	$(info Run vulncheck)
@@ -68,7 +71,7 @@ install-container-tools:
 diagram:
 	plantuml docs/diagrams/*.puml
 
-vscode:
+vscode: gh-install
 	$(info Install APT packages)
 	sudo apt-get update && sudo apt-get install -y \
 		protobuf-compiler \
@@ -81,3 +84,24 @@ vscode:
 	go install honnef.co/go/tools/cmd/staticcheck@latest && \
 	go install golang.org/x/vuln/cmd/govulncheck@latest && \
 	go install golang.org/x/tools/gopls@latest
+
+gh-install:
+	$(info Install GitHub CLI)
+	@if ! command -v gh >/dev/null 2>&1; then \
+		sudo mkdir -p -m 755 /etc/apt/keyrings && \
+		curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null && \
+		sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
+		echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+		sudo apt-get update && \
+		sudo apt-get install -y gh; \
+	else \
+		echo "gh already installed: $$(gh --version | head -1)"; \
+	fi
+
+gh-auth: gh-install
+	$(info Authenticate GitHub CLI)
+	@if gh auth status >/dev/null 2>&1; then \
+		gh auth status; \
+	else \
+		gh auth login; \
+	fi
