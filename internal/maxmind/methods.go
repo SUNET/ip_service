@@ -106,7 +106,7 @@ func (s *Service) parseHeader(ctx context.Context, resp *http.Response) (string,
 
 // getRemoteVersion retrieve the latest remote version.
 func (s *Service) getRemoteVersion(ctx context.Context, dbType string) (string, error) {
-	_, span := s.TP.Start(ctx, "maxmind:getRemoteVersion")
+	ctx, span := s.TP.Start(ctx, "maxmind:getRemoteVersion")
 	defer span.End()
 
 	remoteURL, err := s.cfg.IPService.MaxMind.URL(dbType)
@@ -293,8 +293,9 @@ func (s *Service) AnonymousIP(ctx context.Context, ip net.IP) (*geoip2.Anonymous
 	_, span := s.TP.Start(ctx, "maxmind:AnonymousIP")
 	defer span.End()
 
-	s.DBMeta[model.MaxmindDBTypeCity].MU.RLock()
-	defer s.DBMeta[model.MaxmindDBTypeCity].MU.RUnlock()
+	// Guard the ASN DB with its own lock since we read s.DBASN below.
+	s.DBMeta[model.MaxmindDBTypeASN].MU.RLock()
+	defer s.DBMeta[model.MaxmindDBTypeASN].MU.RUnlock()
 
 	if s.DBASN == nil {
 		return nil, errors.New("ASN database not available")

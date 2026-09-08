@@ -138,8 +138,8 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, tp *trace.Tr
 			case dbType := <-s.downloadChan:
 				s.Log.Info("downloadChan", "dbType", dbType)
 				if err := s.downloadArchive(ctx, dbType); err != nil {
+					// Log and keep the worker alive so subsequent updates/retries still run.
 					s.Log.Error(err, "dbDownloader")
-					return
 				}
 
 			case dbType := <-s.reloadChan:

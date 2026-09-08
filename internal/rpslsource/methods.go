@@ -220,9 +220,15 @@ func (s *Service) unzip(ctx context.Context, dbType string) error {
 	limited := &io.LimitedReader{R: reader, N: maxDecompressedSize + 1}
 	n, err := io.Copy(outFile, limited)
 	if err != nil {
+		_ = outFile.Close()
+		_ = os.Remove(localPath)
 		return err
 	}
 	if n > maxDecompressedSize {
+		// Don't leave a partially-written, oversized file on disk that a
+		// later run could mistake for valid input.
+		_ = outFile.Close()
+		_ = os.Remove(localPath)
 		return fmt.Errorf("decompressed %s exceeds %d byte limit", dbType, maxDecompressedSize)
 	}
 	s.log.Info("File uncompressed", "path", localPath, "size", n)
