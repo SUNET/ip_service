@@ -213,11 +213,19 @@ func (s *Service) unzip(ctx context.Context, dbType string) error {
 	defer outFile.Close()
 
 	// Cap decompressed output to guard against decompression-bomb inputs.
-	const maxDecompressedSize = 8 << 30 // 8 GiB
-	if _, err = io.Copy(outFile, io.LimitReader(reader, maxDecompressedSize)); err != nil {
+	// Read one byte beyond the cap so we can distinguish "valid file at the
+	// limit" from "input larger than the limit" (which would otherwise be
+	// silently truncated by io.LimitReader).
+	const maxDecompressedSize int64 = 8 << 30 // 8 GiB
+	limited := &io.LimitedReader{R: reader, N: maxDecompressedSize + 1}
+	n, err := io.Copy(outFile, limited)
+	if err != nil {
 		return err
 	}
-	s.log.Info("File uncompressed", "path", localPath)
+	if n > maxDecompressedSize {
+		return fmt.Errorf("decompressed %s exceeds %d byte limit", dbType, maxDecompressedSize)
+	}
+	s.log.Info("File uncompressed", "path", localPath, "size", n)
 
 	return nil
 }

@@ -275,6 +275,10 @@ func (s *Service) ISP(ctx context.Context, ip net.IP) (*geoip2.ISP, error) {
 	s.DBMeta["City"].MU.RLock()
 	defer s.DBMeta["City"].MU.RUnlock()
 
+	if s.DBCity == nil {
+		return nil, errors.New("city database not available")
+	}
+
 	isp, err := s.DBCity.ISP(ip)
 	if err != nil {
 		s.Log.Error(err, "failed to get ISP")
@@ -291,6 +295,10 @@ func (s *Service) AnonymousIP(ctx context.Context, ip net.IP) (*geoip2.Anonymous
 
 	s.DBMeta[model.MaxmindDBTypeCity].MU.RLock()
 	defer s.DBMeta[model.MaxmindDBTypeCity].MU.RUnlock()
+
+	if s.DBASN == nil {
+		return nil, errors.New("ASN database not available")
+	}
 
 	asnIP, err := s.DBASN.AnonymousIP(ip)
 	if err != nil {

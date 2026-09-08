@@ -28,16 +28,27 @@ func (s *Service) Status(ctx context.Context) *model.StatusProbe {
 		LastCheckedTS: time.Now(),
 	}
 
+	if s.DBASN == nil {
+		probe.Message["asn_db_status"] = "unavailable"
+		probe.Healthy = false
+	}
+	if s.DBCity == nil {
+		probe.Message["city_db_status"] = "unavailable"
+		probe.Healthy = false
+	}
+
 	for _, testIP := range []string{"95.142.107.181", "110.50.243.6", "69.162.81.155"} {
-		_, err := s.DBASN.ASN(net.ParseIP(testIP))
-		if err != nil {
-			probe.Message["asn"] = fmt.Sprintf("%v", err)
-			probe.Healthy = false
+		if s.DBASN != nil {
+			if _, err := s.DBASN.ASN(net.ParseIP(testIP)); err != nil {
+				probe.Message["asn"] = fmt.Sprintf("%v", err)
+				probe.Healthy = false
+			}
 		}
-		_, err = s.DBCity.Country(net.ParseIP(testIP))
-		if err != nil {
-			probe.Message["city"] = fmt.Sprintf("%v", err)
-			probe.Healthy = false
+		if s.DBCity != nil {
+			if _, err := s.DBCity.Country(net.ParseIP(testIP)); err != nil {
+				probe.Message["city"] = fmt.Sprintf("%v", err)
+				probe.Healthy = false
+			}
 		}
 	}
 
