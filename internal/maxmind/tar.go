@@ -22,6 +22,7 @@ func (s *Service) unTarV3(ctx context.Context, dbType string) error {
 
 	// Walk through the extracted files to find the .mmdb file, since maxmind names the folder with a version number
 	target := fmt.Sprintf("GeoLite2-%s.mmdb", dbType)
+	destPath := filepath.Clean(s.cfg.IPService.MaxMind.DBFilePath(dbType))
 	var srcPath string
 	err = filepath.Walk(s.cfg.IPService.MaxMind.BaseFolder, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -33,6 +34,10 @@ func (s *Service) unTarV3(ctx context.Context, dbType string) error {
 		}
 		// Skip symlinks to avoid TOCTOU traversal via the walked path.
 		if info.Mode()&fs.ModeSymlink != 0 {
+			return nil
+		}
+		// Skip the destination itself so we don't pick it as the source (would truncate to 0 bytes on copy).
+		if filepath.Clean(path) == destPath {
 			return nil
 		}
 		if info.Mode().IsRegular() && info.Name() == target {

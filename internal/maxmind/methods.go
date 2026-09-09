@@ -74,11 +74,6 @@ func (s *Service) downloadArchive(ctx context.Context, dbType string) error {
 	}
 
 	s.Log.Info("download finished", "dbType", dbType)
-	stat, err := archiveFile.Stat()
-	if err != nil {
-		return err
-	}
-	fmt.Println("stat size!!!!!!", dbType, stat.Size())
 
 	if !s.cfg.IPService.MaxMind.IsArchivePresent(dbType) {
 		return fmt.Errorf("archive file missing dbType: %s", dbType)

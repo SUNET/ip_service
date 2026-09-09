@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var host = "172.17.0.1:8181"
+var host = "172.17.0.1:8080"
 
 func init() {
 	if h := os.Getenv("IP_SERVICE_HOST"); h != "" {
