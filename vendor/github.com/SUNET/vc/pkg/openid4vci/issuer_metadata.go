@@ -1,12 +1,7 @@
 package openid4vci
 
 import (
-	"context"
 	"encoding/json"
-	"time"
-
-	"github.com/SUNET/vc/pkg/jose"
-	"github.com/SUNET/vc/pkg/pki"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -40,11 +35,25 @@ type CredentialIssuerMetadataParameters struct {
 	// Display: OPTIONAL. A non-empty array of objects, where each object contains display properties of a Credential Issuer for a certain language.
 	Display []MetadataDisplay `json:"display,omitempty" yaml:"display,omitempty"`
 
+	// Claims: OPTIONAL.
+	Claims []ClaimDescription `json:"claims,omitempty" yaml:"claims,omitempty"`
+
 	// SignedMetadata: OPTIONAL. A JWT that contains Credential Issuer metadata parameters as claims.
 	SignedMetadata string `json:"signed_metadata,omitempty" yaml:"signed_metadata,omitempty"`
 
+	// IssuerInfo: OPTIONAL. Attestations about the Credential Issuer, such as
+	// an ETSI TS 119 475 registration certificate. It is at the wallet's
+	// discretion whether it uses them; a wallet that does MUST validate the
+	// signature and check the binding, exactly as for verifier_info.
+	IssuerInfo []IssuerInfo `json:"issuer_info,omitempty" yaml:"issuer_info,omitempty" validate:"omitempty,dive"`
+
 	// CredentialConfigurationsSupported: REQUIRED. Object that describes specifics of the Credential that the Credential Issuer supports issuance of. This object contains a list of name/value pairs, where each name is a unique identifier of the supported Credential being described.
 	CredentialConfigurationsSupported map[string]CredentialConfigurationsSupported `json:"credential_configurations_supported" yaml:"credential_configurations_supported" validate:"required"`
+
+	// MdocIacasURI: OPTIONAL. URL of the endpoint where the Credential Issuer publishes
+	// its IACA (Issuing Authority Certificate Authority) certificates for mDOC verification.
+	// Used by verifiers to dynamically fetch trust anchors for ISO 18013-5 mDOC credentials.
+	MdocIacasURI string `json:"mdoc_iacas_uri,omitempty" yaml:"mdoc_iacas_uri,omitempty"`
 }
 
 // MetadataIssuer returns the issuer identifier embedded in the metadata
@@ -63,37 +72,6 @@ func (c *CredentialIssuerMetadataParameters) MarshalJWTClaims() (jwt.MapClaims, 
 		return nil, err
 	}
 	return claims, nil
-}
-
-// Sign creates a signed JWT representation of the metadata and sets the signed_metadata field.
-// Per OID4VCI 1.0 Section 12.2.4, signed_metadata is an OPTIONAL JWT that contains the
-// Credential Issuer metadata parameters as claims, using typ "openidvci-issuer-metadata+jwt".
-func (c *CredentialIssuerMetadataParameters) Sign(ctx context.Context, signer pki.Signer, x5c []string) (*CredentialIssuerMetadataParameters, error) {
-	header := jwt.MapClaims{
-		"typ": "openidvci-issuer-metadata+jwt",
-		"x5c": x5c,
-	}
-
-	body, err := c.MarshalJWTClaims()
-	if err != nil {
-		return nil, err
-	}
-
-	body["iat"] = time.Now().Unix()
-	body["iss"] = c.CredentialIssuer
-	body["sub"] = c.CredentialIssuer
-
-	// Remove signed_metadata from the JWT payload to avoid self-referencing
-	delete(body, "signed_metadata")
-
-	reply, err := jose.MakeJWT(ctx, header, body, signer)
-	if err != nil {
-		return nil, err
-	}
-
-	c.SignedMetadata = reply
-
-	return c, nil
 }
 
 // MetadataCredentialResponseEncryption Object containing information about whether the Credential Issuer supports encryption of the Credential and Batch Credential Response on top of TLS.
@@ -170,12 +148,58 @@ type CredentialConfigurationsSupported struct {
 
 	// Cryptosuite: OPTIONAL. For ldp_vc and vc+ld+json formats, identifies the cryptographic suite used for Data Integrity Proofs.
 	Cryptosuite string `json:"cryptosuite,omitempty" yaml:"cryptosuite,omitempty"`
+
+	// DisclosurePolicy: OPTIONAL. Embedded disclosure policy per CIR 2024/2979 Annex III and ETSI TS 119 472-3.
+	// Specifies conditions a Relying Party must meet to receive this attestation.
+	// Distributed via Credential Issuer metadata (ARF 3.0 §6.6.2.8, Discussion Paper Topic D §3.1 Option A).
+	DisclosurePolicy *EmbeddedDisclosurePolicy `json:"disclosure_policy,omitempty" yaml:"disclosure_policy,omitempty"`
+}
+
+// EmbeddedDisclosurePolicy defines rules indicating the conditions a wallet-relying party must meet to access an electronic attestation of attributes.
+// Per CIR 2024/2979 Annex III, three common policy types are defined.
+type EmbeddedDisclosurePolicy struct {
+	// PolicyType identifies the disclosure policy type. One of:
+	//   - "none": no policy applies (default)
+	//   - "authorized_relying_parties": only RPs in the allowlist may receive this attestation
+	//   - "specific_root_of_trust": only RPs with access certificates from specific roots may receive this attestation
+	PolicyType string `json:"policy_type" yaml:"policy_type" default:"none" validate:"required,oneof=none authorized_relying_parties specific_root_of_trust"`
+
+	// AuthorizedRelyingParties is a list of EU-wide unique Relying Party identifiers
+	// (as found in the Wallet-Relying Party Registration Certificate).
+	// Required when policy_type is "authorized_relying_parties".
+	AuthorizedRelyingParties []string `json:"authorized_relying_parties,omitempty" yaml:"authorized_relying_parties,omitempty" validate:"required_if=PolicyType authorized_relying_parties,dive,required"`
+
+	// TrustedRoots is a list of root or intermediate certificate SHA-256 fingerprints
+	// (hex-encoded, 64 characters) from which the RP's access certificate must be derived.
+	// Required when policy_type is "specific_root_of_trust".
+	TrustedRoots []string `json:"trusted_roots,omitempty" yaml:"trusted_roots,omitempty" validate:"required_if=PolicyType specific_root_of_trust,dive,required,len=64,hexadecimal"`
+}
+
+// KeyAttestationRequirement describes constraints the Wallet's key attestation
+// must satisfy for a given proof type. All fields are optional; a zero value
+// serializes to `{}`, meaning "attestation metadata present, no constraints
+// declared" -- see ProofsTypesSupported.KeyAttestationsRequired.
+type KeyAttestationRequirement struct {
+	KeyStorage                      []string `json:"key_storage,omitempty" yaml:"key_storage,omitempty"`
+	UserAuthentication              []string `json:"user_authentication,omitempty" yaml:"user_authentication,omitempty"`
+	PreferredKeyStorageStatusPeriod *int     `json:"preferred_key_storage_status_period,omitempty" yaml:"preferred_key_storage_status_period,omitempty"`
 }
 
 // ProofsTypesSupported Object that describes specifics of the key proof(s) that the Credential Issuer supports.
 type ProofsTypesSupported struct {
 	// ProofSigningAlgValuesSupported: REQUIRED. Array of case sensitive strings that identify the algorithms that the Issuer supports for this proof type. The Wallet uses one of them to sign the proof. Algorithm names used are determined by the key proof type and are defined in Section 7.2.1.
 	ProofSigningAlgValuesSupported []string `json:"proof_signing_alg_values_supported" yaml:"proof_signing_alg_values_supported" validate:"required"`
+
+	// KeyAttestationsRequired: REQUIRED (per later OpenID4VCI drafts consumed by
+	// eudi-lib-jvm-openid4vci-kt 0.12.1+, which hard-fails issuer metadata
+	// validation without this field, and expects it to be a JSON object, not a
+	// boolean -- confirmed by decompiling KeyAttestationRequirementTO in that
+	// library). A zero-value KeyAttestationRequirement serializes to `{}`,
+	// declaring no specific attestation constraints -- this project has no
+	// Wallet Attestation / WSCD verification wired up yet (lpidproto PLAN.md
+	// workstream 8, not yet started), so asserting real constraints here would
+	// be dishonest. Revisit together with WS8 (production trust rollout).
+	KeyAttestationsRequired KeyAttestationRequirement `json:"key_attestations_required" yaml:"key_attestations_required"`
 }
 
 // CredentialMetadata contains information relevant to the usage and display of issued Credentials.
@@ -189,10 +213,14 @@ type CredentialMetadata struct {
 }
 
 // ClaimDescription describes a claim within a Credential for display purposes.
-// https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-claims-description-for-issu
 type ClaimDescription struct {
 	// Path: REQUIRED. A non-empty array representing a claims path pointer that specifies the path to a claim within the credential.
-	Path []string `json:"path" yaml:"path" validate:"required"`
+	// A nil entry denotes a wildcard over an array's elements (e.g. ["nationalities", null]),
+	// matching the claims path pointer semantics used by presentation/DCQL and VCTM.
+	Path []*string `json:"path" yaml:"path" validate:"required"`
+
+	// SVGID: OPTIONAL. A string linking the claim to a specific element ID in an SVG background template.
+	SVGID string `json:"svg_id,omitempty" yaml:"svg_id,omitempty"`
 
 	// Mandatory: OPTIONAL. Boolean which, when set to true, indicates that the Credential Issuer will always include this claim.
 	Mandatory bool `json:"mandatory,omitempty" yaml:"mandatory,omitempty"`
@@ -205,6 +233,10 @@ type ClaimDescription struct {
 type ClaimDisplayProperties struct {
 	// Name: OPTIONAL. String value of a display name for the claim.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Label: OPTIONAL. Same as Name — included for compatibility with consumers
+	// (e.g. wallet-common's dataUriResolver) that expect a "label" field.
+	Label string `json:"label,omitempty" yaml:"label,omitempty"`
 
 	// Locale: OPTIONAL. String value that identifies the language of this object.
 	Locale string `json:"locale,omitempty" yaml:"locale,omitempty" validate:"bcp47_language_tag"`
@@ -221,6 +253,36 @@ type CredentialDefinition struct {
 	Context []string `json:"@context,omitempty" yaml:"@context,omitempty"`
 }
 
+// MetadataRendering contains rendering information for a Credential Issuer or Credential,
+// as defined in ISO/IEC 18013-5 and referenced by OpenID4VCI mdoc rendering extensions.
+type MetadataRendering struct {
+	// Simple: OPTIONAL. Object containing simple rendering information, such as a logo.
+	Simple *MetadataSimpleRendering `json:"simple,omitempty" yaml:"simple,omitempty"`
+
+	// SvgTemplates: OPTIONAL. A non-empty array of SVG template objects used to render the Credential.
+	SvgTemplates []MetadataSvgTemplate `json:"svg_templates,omitempty" yaml:"svg_templates,omitempty"`
+}
+
+// MetadataSimpleRendering contains simple (non-SVG) rendering information.
+type MetadataSimpleRendering struct {
+	// Logo: OPTIONAL. Object with information about the logo to use for simple rendering.
+	Logo *MetadataLogo `json:"logo,omitempty" yaml:"logo,omitempty"`
+}
+
+// MetadataSvgTemplate describes a single SVG template used to render a Credential.
+type MetadataSvgTemplate struct {
+	// URI: REQUIRED. String value that contains a URI where the Wallet can obtain the SVG template.
+	URI string `json:"uri" yaml:"uri" validate:"required"`
+
+	// URIIntegrity: OPTIONAL. Subresource integrity hash (e.g. "sha256-...") of the SVG template,
+	// allowing the Wallet to verify the integrity of the fetched resource.
+	URIIntegrity string `json:"uri#integrity,omitempty" yaml:"uri_integrity,omitempty"`
+
+	// Properties: OPTIONAL. Object describing the rendering properties this template is suited for,
+	// such as orientation, color scheme, and contrast.
+	Properties *MetadataSvgTemplateProperties `json:"properties,omitempty" yaml:"properties,omitempty"`
+}
+
 // CredentialMetadataDisplay displays properties of the supported Credential for a certain language.
 type CredentialMetadataDisplay struct {
 	// Name: REQUIRED. String value of a display name for the Credential.
@@ -229,24 +291,60 @@ type CredentialMetadataDisplay struct {
 	// Locale: OPTIONAL. String value that identifies the language of this object represented as a language tag taken from values defined in BCP47 [RFC5646]. Multiple display objects MAY be included for separate languages. There MUST be only one object for each language identifier.
 	Locale string `json:"locale,omitempty" yaml:"locale,omitempty" validate:"bcp47_language_tag"`
 
-	// Logo: OPTIONAL. Object with information about the logo of the Credential
-	Logo *MetadataLogo `json:"logo,omitempty" yaml:"logo,omitempty"`
-
 	// Description: OPTIONAL. String value of a description of the Credential.
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 
 	// BackgroundColor: OPTIONAL. String value of a background color of the Credential represented as numerical color values defined in CSS Color Module Level 37 [CSS-Color].
 	BackgroundColor string `json:"background_color,omitempty" yaml:"background_color,omitempty"`
 
+	// Logo: OPTIONAL. Object with information about the logo of the Credential
+	Logo *MetadataLogo `json:"logo,omitempty" yaml:"logo,omitempty"`
+
 	// BackgroundImage: OPTIONAL. Object with information about the background image of the Credential. At least the following parameter MUST be included:
 	BackgroundImage *MetadataBackgroundImage `json:"background_image,omitempty" yaml:"background_image,omitempty"`
-
 	// TextColor: OPTIONAL. String value of a text color of the Credential represented as numerical color values defined in CSS Color Module Level 37 [CSS-Color].
 	TextColor string `json:"text_color,omitempty" yaml:"text_color,omitempty"`
+
+	// Rendering: OPTIONAL
+	Rendering *MetadataRendering `json:"rendering,omitempty" yaml:"rendering,omitempty"`
+}
+
+// MetadataSvgTemplateProperties describes the rendering context an SVG template is intended for.
+type MetadataSvgTemplateProperties struct {
+	// Orientation: OPTIONAL. String value, e.g. "portrait" or "landscape".
+	Orientation string `json:"orientation,omitempty" yaml:"orientation,omitempty"`
+
+	// ColorScheme: OPTIONAL. String value, e.g. "light" or "dark".
+	ColorScheme string `json:"color_scheme,omitempty" yaml:"color_scheme,omitempty"`
+
+	// Contrast: OPTIONAL. String value, e.g. "normal" or "high".
+	Contrast string `json:"contrast,omitempty" yaml:"contrast,omitempty"`
 }
 
 // MetadataBackgroundImage contains  information about the background image of the Credential
 type MetadataBackgroundImage struct {
 	// URI REQUIRED. String value that contains a URI where the Wallet can obtain the background image of the Credential from the Credential Issuer. The Wallet needs to determine the scheme, since the URI value could use the https: scheme, the data: scheme, etc.
 	URI string `json:"uri" yaml:"uri" validate:"required"`
+}
+
+// IssuerInfo is an attestation about the Credential Issuer, conveyed to
+// wallets in the issuer_info metadata parameter.
+//
+// It mirrors openid4vp.VerifierInfo, which carries the same documents in the
+// other direction: under CIR (EU) 2025/848 a PID or attestation provider is a
+// registered wallet-relying party in its own right, so the registration
+// certificate an issuer presents is the same kind of document a verifier
+// presents.
+//
+// VerifierInfo's credential_ids has no counterpart here. There it references
+// DCQL credential queries in a presentation request; issuer metadata
+// describes the issuer as a whole and has nothing to reference.
+type IssuerInfo struct {
+	// Format identifies the attestation format and how it is encoded, e.g.
+	// "rc-wrp+jwt" for an ETSI TS 119 475 registration certificate.
+	Format string `json:"format" bson:"format" validate:"required"`
+
+	// Data is the attestation itself - for rc-wrp+jwt, the compact JWT
+	// exactly as the Registrar issued it.
+	Data string `json:"data" bson:"data" validate:"required"`
 }

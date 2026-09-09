@@ -72,8 +72,8 @@ type AuthorizationContext struct {
 
 	// Token fields
 	Token       *Token `json:"token,omitempty" bson:"token,omitempty"`
-	AccessToken string `json:"access_token,omitempty" bson:"access_token,omitempty" validate:"omitempty,max=4096,printascii"`
-	IDToken     string `json:"id_token,omitempty" bson:"id_token,omitempty" validate:"omitempty,max=8192,printascii"`
+	AccessToken string `json:"access_token,omitempty" bson:"access_token,omitempty" validate:"omitempty,max=16384,printascii"`
+	IDToken     string `json:"id_token,omitempty" bson:"id_token,omitempty" validate:"omitempty,max=32768,printascii"`
 
 	// Issuer-specific fields (credential issuance)
 	AuthorizationDetails []openid4vci.AuthorizationDetailsParameter `json:"authorization_details,omitempty" bson:"authorization_details,omitempty"`
@@ -92,6 +92,11 @@ type AuthorizationContext struct {
 	ResponseType           string         `json:"response_type,omitempty" bson:"response_type,omitempty" validate:"omitempty,max=32,printascii"`
 	ResponseMode           string         `json:"response_mode,omitempty" bson:"response_mode,omitempty" validate:"omitempty,max=32,printascii"`
 	ShowCredentialDetails  bool           `json:"show_credential_details,omitempty" bson:"show_credential_details,omitempty"`
+	// WalletFollowsRedirect is set when the user leaves /authorize for a
+	// same-device web wallet. ProcessDirectPost then returns redirect_uri so
+	// the wallet can send the browser back to the RP. Cross-device flows
+	// leave this false; the /authorize page poller performs the redirect.
+	WalletFollowsRedirect  bool           `json:"wallet_follows_redirect,omitempty" bson:"wallet_follows_redirect,omitempty"`
 	CodeExpiresAt          int64          `json:"code_expires_at,omitempty" bson:"code_expires_at,omitempty"`                 // Unix timestamp
 	AccessTokenExpiresAt   int64          `json:"access_token_expires_at,omitempty" bson:"access_token_expires_at,omitempty"` // Unix timestamp
 	RefreshToken           string         `json:"refresh_token,omitempty" bson:"refresh_token,omitempty" validate:"omitempty,max=4096,printascii"`

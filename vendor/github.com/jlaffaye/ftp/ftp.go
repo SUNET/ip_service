@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/textproto"
@@ -39,6 +40,10 @@ type TransferType string
 const (
 	TransferTypeBinary = TransferType("I")
 	TransferTypeASCII  = TransferType("A")
+)
+
+var (
+	ErrInvalidCommand = errors.New("command contains CR or LF")
 )
 
 // Time format used by the MDTM and MFMT commands
@@ -75,6 +80,7 @@ type dialOptions struct {
 	tlsConfig       *tls.Config
 	explicitTLS     bool
 	disableEPSV     bool
+	trustPasvIP     bool
 	disableUTF8     bool
 	disableMLSD     bool
 	writingMDTM     bool
@@ -214,6 +220,15 @@ func DialWithNetConn(conn net.Conn) DialOption {
 func DialWithDisabledEPSV(disabled bool) DialOption {
 	return DialOption{func(do *dialOptions) {
 		do.disableEPSV = disabled
+	}}
+}
+
+// DialWithTrustPasvIP returns a DialOption that makes the ServerConn use the host
+// from the server's PASV reply for the data connection. It is off by default
+// to protect from SSRF.
+func DialWithTrustPasvIP(trust bool) DialOption {
+	return DialOption{func(do *dialOptions) {
+		do.trustPasvIP = trust
 	}}
 }
 
@@ -531,6 +546,10 @@ func (c *ServerConn) pasv() (host string, port int, err error) {
 	// Make the IP address to connect to
 	host = strings.Join(pasvData[0:4], ".")
 
+	if !c.options.trustPasvIP {
+		return c.host, port, nil
+	}
+
 	if c.host != host {
 		if cmdIP := net.ParseIP(c.host); cmdIP != nil {
 			if dataIP := net.ParseIP(host); dataIP != nil {
@@ -604,12 +623,26 @@ func (c *ServerConn) openDataConn() (net.Conn, error) {
 // cmd is a helper function to execute a command and check for the expected FTP
 // return code
 func (c *ServerConn) cmd(expected int, format string, args ...interface{}) (int, string, error) {
+	if err := checkForCommandInjection(format, args...); err != nil {
+		return 0, "", err
+	}
+
 	_, err := c.conn.Cmd(format, args...)
 	if err != nil {
 		return 0, "", err
 	}
 
 	return c.conn.ReadResponse(expected)
+}
+
+func checkForCommandInjection(format string, args ...interface{}) error {
+	res := fmt.Sprintf(format, args...)
+
+	if strings.ContainsAny(res, "\r\n") {
+		return ErrInvalidCommand
+	}
+
+	return nil
 }
 
 // cmdDataConnFrom executes a command which require a FTP data connection.
@@ -637,17 +670,12 @@ func (c *ServerConn) cmdDataConnFrom(offset uint64, format string, args ...inter
 		}
 	}
 
-	_, err = c.conn.Cmd(format, args...)
+	code, msg, err := c.cmd(-1, format, args...)
 	if err != nil {
 		_ = conn.Close()
 		return nil, err
 	}
 
-	code, msg, err := c.conn.ReadResponse(-1)
-	if err != nil {
-		_ = conn.Close()
-		return nil, err
-	}
 	if code != StatusAlreadyOpen && code != StatusAboutToSend {
 		_ = conn.Close()
 		return nil, &textproto.Error{Code: code, Msg: msg}
@@ -780,9 +808,9 @@ func (c *ServerConn) GetEntry(path string) (entry *Entry, err error) {
 	e := &Entry{}
 	for _, l := range lines[1 : lc-1] {
 		// According to RFC 3659, the entry lines must start with a space when passed over the
-		// control connection. Some servers don't seem to add that space though. Both forms are
-		// accepted here.
-		if len(l) > 0 && l[0] == ' ' {
+		// control connection. Some servers don't seem to add that space though and some servers
+		// add multiple spaces. All forms are accepted here.
+		for len(l) > 0 && l[0] == ' ' {
 			l = l[1:]
 		}
 		// Some severs seem to send a blank line at the end which we ignore

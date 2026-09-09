@@ -1,0 +1,92 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+  tests: true
+linters:
+  enable:
+    - bodyclose
+    - gosec
+    - misspell
+    - noctx
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+  settings:
+    errcheck:
+      check-type-assertions: false
+      check-blank: true
+    govet:
+      disable:
+        - shadow
+        - fieldalignment
+      enable-all: true
+    revive:
+      rules:
+        - name: exported
+          severity: warning
+          disabled: false
+        - name: var-naming
+          severity: warning
+          disabled: false
+        - name: package-comments
+          severity: warning
+          disabled: false
+    staticcheck:
+      checks:
+        - all
+        - -QF1012  # Allow WriteString(fmt.Sprintf(...)) pattern
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - errcheck
+          - fieldalignment
+          - gosec
+          - noctx
+          - unused
+        path: _test\.go
+      - linters:
+          - gosec
+          - noctx
+        path: ^cmd/
+      - linters:
+          - gosec
+          - noctx
+          - errcheck
+        path: ^examples/
+      - linters:
+          - noctx
+        path: pkg/client/client\.go
+      - linters:
+          - noctx
+        path: pkg/server/server\.go
+      - linters:
+          - errcheck
+        path: pkg/compare/compare\.go
+        text: type assertion on error
+      - linters:
+          - errcheck
+        path: pkg/starform/starform\.go
+        text: type assertion on error
+    paths:
+      - third_party$
+      - builtin$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

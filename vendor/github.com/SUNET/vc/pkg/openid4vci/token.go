@@ -7,8 +7,8 @@ type TokenRequest struct {
 	// Header field
 	DPOP string `header:"dpop"`
 
-	// GrantType REQUIRED. "authorization_code" or "urn:ietf:params:oauth:grant-type:pre-authorized_code".
-	GrantType string `form:"grant_type" json:"grant_type" validate:"required,oneof=authorization_code urn:ietf:params:oauth:grant-type:pre-authorized_code"`
+	// GrantType REQUIRED. "authorization_code", "urn:ietf:params:oauth:grant-type:pre-authorized_code", or "refresh_token".
+	GrantType string `form:"grant_type" json:"grant_type" validate:"required,oneof=authorization_code urn:ietf:params:oauth:grant-type:pre-authorized_code refresh_token"`
 
 	// Authorization Code Flow fields
 
@@ -32,6 +32,10 @@ type TokenRequest struct {
 	// ClientAssertion OPTIONAL. The client assertion JWT for private_key_jwt or client_secret_jwt authentication.
 	ClientAssertion string `form:"client_assertion" json:"client_assertion" validate:"omitempty,max=8192,printascii"`
 
+	// Client attestation via HTTP headers (draft-ietf-oauth-attestation-based-client-auth-04 §3.1).
+	ClientAttestation    string `json:"-" form:"-" header:"OAuth-Client-Attestation"`
+	ClientAttestationPoP string `json:"-" form:"-" header:"OAuth-Client-Attestation-PoP"`
+
 	// Pre-Authorized Code Flow fields
 
 	// PreAuthorizedCode REQUIRED for pre-authorized_code grant. The code representing the authorization to obtain Credentials.
@@ -39,6 +43,11 @@ type TokenRequest struct {
 
 	// TXCode OPTIONAL. String value containing a Transaction Code.
 	TXCode string `form:"tx_code" json:"tx_code"`
+
+	// Refresh Token Flow fields
+
+	// RefreshToken REQUIRED for refresh_token grant. The refresh token previously issued to the client.
+	RefreshToken string `form:"refresh_token" json:"refresh_token" validate:"required_if=GrantType refresh_token,omitempty,max=256,printascii"`
 }
 
 // TokenResponse https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-successful-token-response
@@ -68,4 +77,11 @@ type TokenResponse struct {
 	// OPTIONAL when scope parameter was used to request issuance of a Credential. It MUST NOT be used otherwise.
 	// It is a non-empty array of objects, as defined in Section 7 of [RFC9396].
 	AuthorizationDetails []AuthorizationDetailsParameter `json:"authorization_details,omitempty"`
+
+	// RefreshToken OPTIONAL. A refresh token bound to the DPoP key, allowing the client to obtain
+	// fresh access tokens for credential re-issuance without full re-authentication.
+	RefreshToken string `json:"refresh_token,omitempty"`
+
+	// RefreshTokenExpiresIn OPTIONAL. Lifetime in seconds of the refresh token.
+	RefreshTokenExpiresIn int `json:"refresh_token_expires_in,omitempty"`
 }

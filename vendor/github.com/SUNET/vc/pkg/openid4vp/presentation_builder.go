@@ -154,14 +154,42 @@ func copyDCQL(src *DCQL) *DCQL {
 
 	// Copy credentials
 	for i, cred := range src.Credentials {
+		meta := MetaQuery{
+			DoctypeValue: cred.Meta.DoctypeValue,
+			PPIDContext:  cred.Meta.PPIDContext,
+		}
+		if len(cred.Meta.VCTValues) > 0 {
+			meta.VCTValues = append([]string{}, cred.Meta.VCTValues...)
+		}
+		if len(cred.Meta.TypeValues) > 0 {
+			meta.TypeValues = make([][]string, len(cred.Meta.TypeValues))
+			for j, tv := range cred.Meta.TypeValues {
+				meta.TypeValues[j] = append([]string{}, tv...)
+			}
+		}
+		if len(cred.Meta.ZKSystemType) > 0 {
+			meta.ZKSystemType = make([]ZKSystemTypeSpec, len(cred.Meta.ZKSystemType))
+			for j, spec := range cred.Meta.ZKSystemType {
+				params := make(map[string]string, len(spec.Params))
+				for k, v := range spec.Params {
+					params[k] = v
+				}
+				meta.ZKSystemType[j] = ZKSystemTypeSpec{
+					ID:     spec.ID,
+					System: spec.System,
+					Params: params,
+				}
+			}
+		}
 		dst.Credentials[i] = CredentialQuery{
 			ID:       cred.ID,
 			Format:   cred.Format,
 			Multiple: cred.Multiple,
-			Meta: MetaQuery{
-				VCTValues: append([]string{}, cred.Meta.VCTValues...),
-			},
-			RequireCryptographicHolderBinding: cred.RequireCryptographicHolderBinding,
+			Meta:     meta,
+		}
+		if cred.RequireCryptographicHolderBinding != nil {
+			v := *cred.RequireCryptographicHolderBinding
+			dst.Credentials[i].RequireCryptographicHolderBinding = &v
 		}
 
 		// Copy trusted authorities
@@ -186,24 +214,35 @@ func copyDCQL(src *DCQL) *DCQL {
 						pathCopy[k] = &s
 					}
 				}
+				var valuesCopy []any
+				if claim.Values != nil {
+					valuesCopy = append([]any{}, claim.Values...)
+				}
 				dst.Credentials[i].Claims[j] = ClaimQuery{
-					Path: pathCopy,
+					ID:     claim.ID,
+					Path:   pathCopy,
+					Values: valuesCopy,
 				}
 			}
 		}
 
 		// Copy claim sets
 		if len(cred.ClaimSet) > 0 {
-			dst.Credentials[i].ClaimSet = append([]string{}, cred.ClaimSet...)
+			dst.Credentials[i].ClaimSet = make([][]string, len(cred.ClaimSet))
+			for j, cs := range cred.ClaimSet {
+				dst.Credentials[i].ClaimSet[j] = append([]string{}, cs...)
+			}
 		}
 	}
 
 	// Copy credential sets
 	for i, cs := range src.CredentialSets {
 		dst.CredentialSets[i] = CredentialSetQuery{
-			Required: cs.Required,
-			Purpose:  cs.Purpose,
-			Options:  make([][]string, len(cs.Options)),
+			Options: make([][]string, len(cs.Options)),
+		}
+		if cs.Required != nil {
+			v := *cs.Required
+			dst.CredentialSets[i].Required = &v
 		}
 		for j, opt := range cs.Options {
 			dst.CredentialSets[i].Options[j] = append([]string{}, opt...)
