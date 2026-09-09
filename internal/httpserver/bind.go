@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func (s *Service) bindRequest(ctx context.Context, c *fiber.Ctx, v interface{}) error {
+func (s *Service) bindRequest(ctx context.Context, c *fiber.Ctx, v any) error {
 	ctx, span := s.TP.Start(ctx, "httpserver:bindRequest")
 	defer span.End()
 
@@ -38,7 +38,7 @@ func (s *Service) bindRequest(ctx context.Context, c *fiber.Ctx, v interface{}) 
 }
 
 // bindURIParams maps path parameters to struct fields tagged with `uri:"name"`
-func (s *Service) bindURIParams(c *fiber.Ctx, v interface{}) {
+func (s *Service) bindURIParams(c *fiber.Ctx, v any) {
 	refV := reflect.ValueOf(v).Elem()
 	refT := refV.Type()
 	for i := 0; i < refT.NumField(); i++ {

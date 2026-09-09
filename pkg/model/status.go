@@ -47,7 +47,7 @@ type StatusProbe struct {
 	Name          string         `json:"name,omitempty"`
 	Healthy       bool           `json:"healthy,omitempty"`
 	Message       map[string]any `json:"message,omitempty"`
-	LastCheckedTS time.Time      `json:"timestamp,omitempty"`
+	LastCheckedTS time.Time      `json:"timestamp"`
 }
 
 type StatusReplyData struct {

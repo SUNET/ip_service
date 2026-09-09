@@ -11,8 +11,8 @@ import (
 
 // Error is a struct that represents an error
 type Error struct {
-	Title   string      `json:"title" `
-	Details interface{} `json:"details" xml:"details"`
+	Title   string `json:"title" `
+	Details any    `json:"details" xml:"details"`
 }
 
 // Error is the string representation of the Error struct
@@ -36,7 +36,7 @@ func NewError(id string) *Error {
 }
 
 // NewErrorDetails creates a new Error with details
-func NewErrorDetails(id string, details interface{}) *Error {
+func NewErrorDetails(id string, details any) *Error {
 	return &Error{Title: id, Details: details}
 }
 
