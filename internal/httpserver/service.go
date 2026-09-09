@@ -111,11 +111,13 @@ func New(ctx context.Context, cfg *model.Cfg, api *apiv1.Client, tp *trace.Trace
 	// Metrics
 	s.app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
 
-	// Debug/pprof
-	s.app.Get("/debug/pprof/", adaptor.HTTPHandlerFunc(pprof.Index))
-	s.app.Get("/debug/pprof/heap", adaptor.HTTPHandler(pprof.Handler("heap")))
-	s.app.Get("/debug/pprof/goroutine", adaptor.HTTPHandler(pprof.Handler("goroutine")))
-	s.app.Get("/debug/pprof/allocs", adaptor.HTTPHandler(pprof.Handler("allocs")))
+	// Debug/pprof — only enabled outside production
+	if !cfg.IPService.Production {
+		s.app.Get("/debug/pprof/", adaptor.HTTPHandlerFunc(pprof.Index))
+		s.app.Get("/debug/pprof/heap", adaptor.HTTPHandler(pprof.Handler("heap")))
+		s.app.Get("/debug/pprof/goroutine", adaptor.HTTPHandler(pprof.Handler("goroutine")))
+		s.app.Get("/debug/pprof/allocs", adaptor.HTTPHandler(pprof.Handler("allocs")))
+	}
 
 	// 404 handler
 	s.app.Use(func(c *fiber.Ctx) error {
