@@ -8,6 +8,7 @@ package apiv1_issuer
 
 import (
 	context "context"
+	apiv1_status "github.com/SUNET/vc/internal/gen/status/apiv1_status"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -24,6 +25,8 @@ const (
 	IssuerService_MakeVC20_FullMethodName     = "/v1.issuer.IssuerService/MakeVC20"
 	IssuerService_JWKS_FullMethodName         = "/v1.issuer.IssuerService/JWKS"
 	IssuerService_SignMetadata_FullMethodName = "/v1.issuer.IssuerService/SignMetadata"
+	IssuerService_GetIACAs_FullMethodName     = "/v1.issuer.IssuerService/GetIACAs"
+	IssuerService_Status_FullMethodName       = "/v1.issuer.IssuerService/Status"
 )
 
 // IssuerServiceClient is the client API for IssuerService service.
@@ -35,6 +38,8 @@ type IssuerServiceClient interface {
 	MakeVC20(ctx context.Context, in *MakeVC20Request, opts ...grpc.CallOption) (*MakeVC20Reply, error)
 	JWKS(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*JwksReply, error)
 	SignMetadata(ctx context.Context, in *SignMetadataRequest, opts ...grpc.CallOption) (*SignMetadataReply, error)
+	GetIACAs(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetIACAsReply, error)
+	Status(ctx context.Context, in *apiv1_status.StatusRequest, opts ...grpc.CallOption) (*apiv1_status.StatusReply, error)
 }
 
 type issuerServiceClient struct {
@@ -95,6 +100,26 @@ func (c *issuerServiceClient) SignMetadata(ctx context.Context, in *SignMetadata
 	return out, nil
 }
 
+func (c *issuerServiceClient) GetIACAs(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetIACAsReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetIACAsReply)
+	err := c.cc.Invoke(ctx, IssuerService_GetIACAs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *issuerServiceClient) Status(ctx context.Context, in *apiv1_status.StatusRequest, opts ...grpc.CallOption) (*apiv1_status.StatusReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(apiv1_status.StatusReply)
+	err := c.cc.Invoke(ctx, IssuerService_Status_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IssuerServiceServer is the server API for IssuerService service.
 // All implementations must embed UnimplementedIssuerServiceServer
 // for forward compatibility.
@@ -104,6 +129,8 @@ type IssuerServiceServer interface {
 	MakeVC20(context.Context, *MakeVC20Request) (*MakeVC20Reply, error)
 	JWKS(context.Context, *Empty) (*JwksReply, error)
 	SignMetadata(context.Context, *SignMetadataRequest) (*SignMetadataReply, error)
+	GetIACAs(context.Context, *Empty) (*GetIACAsReply, error)
+	Status(context.Context, *apiv1_status.StatusRequest) (*apiv1_status.StatusReply, error)
 	mustEmbedUnimplementedIssuerServiceServer()
 }
 
@@ -128,6 +155,12 @@ func (UnimplementedIssuerServiceServer) JWKS(context.Context, *Empty) (*JwksRepl
 }
 func (UnimplementedIssuerServiceServer) SignMetadata(context.Context, *SignMetadataRequest) (*SignMetadataReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method SignMetadata not implemented")
+}
+func (UnimplementedIssuerServiceServer) GetIACAs(context.Context, *Empty) (*GetIACAsReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetIACAs not implemented")
+}
+func (UnimplementedIssuerServiceServer) Status(context.Context, *apiv1_status.StatusRequest) (*apiv1_status.StatusReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method Status not implemented")
 }
 func (UnimplementedIssuerServiceServer) mustEmbedUnimplementedIssuerServiceServer() {}
 func (UnimplementedIssuerServiceServer) testEmbeddedByValue()                       {}
@@ -240,6 +273,42 @@ func _IssuerService_SignMetadata_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IssuerService_GetIACAs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IssuerServiceServer).GetIACAs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IssuerService_GetIACAs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IssuerServiceServer).GetIACAs(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IssuerService_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(apiv1_status.StatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IssuerServiceServer).Status(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IssuerService_Status_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IssuerServiceServer).Status(ctx, req.(*apiv1_status.StatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IssuerService_ServiceDesc is the grpc.ServiceDesc for IssuerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +335,14 @@ var IssuerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SignMetadata",
 			Handler:    _IssuerService_SignMetadata_Handler,
+		},
+		{
+			MethodName: "GetIACAs",
+			Handler:    _IssuerService_GetIACAs_Handler,
+		},
+		{
+			MethodName: "Status",
+			Handler:    _IssuerService_Status_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
