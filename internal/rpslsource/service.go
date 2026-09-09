@@ -3,13 +3,14 @@ package rpslsource
 import (
 	"context"
 	"ip_service/internal/store"
-	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
 	"ip_service/pkg/rpsl"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/SUNET/vc/pkg/logger"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"golang.org/x/time/rate"

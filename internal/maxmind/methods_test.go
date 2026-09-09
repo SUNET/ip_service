@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,31 +75,25 @@ func TestInitial(t *testing.T) {
 			mux := http.NewServeMux()
 
 			mux.HandleFunc("GET /download/", func(w http.ResponseWriter, r *http.Request) {
-				t.Log("XXXXXXX Inside of mockServer")
-
-				q := r.URL.Query()
-				lic := q.Get("license_key")
-				suffix := q.Get("suffix")
-				eid := q.Get("edition_id")
+				t.Log("XXXXXXX Inside of mockServer", "path", r.URL.Path)
 
 				var (
-					file []byte = nil
+					file []byte
 					err  error
 				)
 
-				switch eid {
-				case "GeoLite2-City":
+				switch {
+				case strings.Contains(r.URL.Path, "GeoLite2-City"):
 					file, err = os.ReadFile("./testdata/GeoLite2-City.tar.gz")
 					assert.NoError(t, err)
-				case "GeoLite2-ASN":
+				case strings.Contains(r.URL.Path, "GeoLite2-ASN"):
 					file, err = os.ReadFile("./testdata/GeoLite2-ASN.tar.gz")
 					assert.NoError(t, err)
 				default:
-					t.Log("no edition_id match found")
+					t.Log("no dbType match found in path", r.URL.Path)
 					t.FailNow()
 				}
 
-				t.Log("XXXXXXX Inside of mockServer", "license_key", lic, "suffix", suffix, "edition_id", eid)
 				w.Header().Set("last-modified", latestTS)
 				w.Header().Set("Content-Type", "application/gzip")
 				w.WriteHeader(200)
@@ -114,7 +109,25 @@ func TestInitial(t *testing.T) {
 
 			_ = mockService(t, tempDir, server.URL, false)
 
-			time.Sleep(1 * time.Second)
+			// Wait for all mmdb files to appear (populated asynchronously by the download goroutine).
+			deadline := time.Now().Add(30 * time.Second)
+			expected := make([]string, 0, len(tt.dbTypes))
+			for _, dbType := range tt.dbTypes {
+				expected = append(expected, filepath.Join(tempDir, fmt.Sprintf("GeoLite2-%s.mmdb", dbType)))
+			}
+			for {
+				allPresent := true
+				for _, p := range expected {
+					if _, err := os.Stat(p); err != nil {
+						allPresent = false
+						break
+					}
+				}
+				if allPresent || time.Now().After(deadline) {
+					break
+				}
+				time.Sleep(50 * time.Millisecond)
+			}
 
 			for _, dbType := range tt.dbTypes {
 				for _, fileType := range []string{"mmdb"} {
@@ -172,6 +185,10 @@ func TestOpenDB(t *testing.T) {
 
 			tempDir := t.TempDir()
 
+			// Pre-place the mmdb so IsDBPresent is true and loadDB can open it.
+			copyFile(t, filepath.Join("testdata", fmt.Sprintf("GeoLite2-%s.mmdb", tt.have.dbType)),
+				filepath.Join(tempDir, fmt.Sprintf("GeoLite2-%s.mmdb", tt.have.dbType)))
+
 			service := mockService(t, tempDir, server.URL, false)
 
 			err := service.loadDB(context.TODO(), tt.have.dbType)
@@ -179,3 +196,4 @@ func TestOpenDB(t *testing.T) {
 		})
 	}
 }
+

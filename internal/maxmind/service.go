@@ -10,8 +10,9 @@ import (
 
 	"ip_service/internal/store"
 	"ip_service/pkg/helpers"
-	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
+
+	"github.com/SUNET/vc/pkg/logger"
 	"github.com/SUNET/vc/pkg/trace"
 
 	"github.com/oschwald/geoip2-golang"
@@ -106,8 +107,8 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, tp *trace.Tr
 	for dbType := range s.DBMeta {
 		s.Log.Info("init db", "dbType", dbType)
 		if err := s.initial(ctx, dbType); err != nil {
-			s.Log.Error(err, "failed to initialize db", "dbType", dbType)
-			return nil, err
+			s.Log.Error(err, "failed to initialize db, will retry in background", "dbType", dbType)
+			s.downloadChan <- dbType
 		}
 	}
 
@@ -137,8 +138,8 @@ func New(ctx context.Context, cfg *model.Cfg, store *store.Service, tp *trace.Tr
 			case dbType := <-s.downloadChan:
 				s.Log.Info("downloadChan", "dbType", dbType)
 				if err := s.downloadArchive(ctx, dbType); err != nil {
+					// Log and keep the worker alive so subsequent updates/retries still run.
 					s.Log.Error(err, "dbDownloader")
-					return
 				}
 
 			case dbType := <-s.reloadChan:

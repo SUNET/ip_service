@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"mime"
@@ -82,6 +83,7 @@ func New(ctx context.Context, cfg *model.Cfg, api *apiv1.Client, tp *trace.Trace
 	})
 
 	// Middlewares
+	s.app.Use(s.middlewareTimeout(ctx))
 	s.app.Use(s.middlewareDuration(ctx))
 	s.app.Use(s.middlewareTraceID(ctx))
 	s.app.Use(s.middlewareLogger(ctx))
@@ -163,21 +165,38 @@ func (s *Service) clientIP(c *fiber.Ctx) string {
 	return c.Context().RemoteIP().String()
 }
 
+// statusForError maps handler errors to an HTTP status code.
+// Request-scoped deadline/cancel errors from the timeout middleware map to
+// timeout/client-closed statuses so clients can distinguish them from bad input.
+func statusForError(err error) int {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return http.StatusGatewayTimeout
+	case errors.Is(err, context.Canceled):
+		return http.StatusRequestTimeout
+	default:
+		return http.StatusBadRequest
+	}
+}
+
 func (s *Service) regEndpoint(ctx context.Context, method, path string, handler func(context.Context, *fiber.Ctx) (any, error)) {
 	s.app.Add(method, path, func(c *fiber.Ctx) error {
+		// Use the request-scoped context (carries timeout from middleware)
+		reqCtx := c.UserContext()
+
 		clientIP := s.clientIP(c)
 		s.logger.Debug("register endpoint", "method", method, "path", path, "clientip", clientIP)
-		ctx = contexthandler.Add(ctx, "request", &contexthandler.RequestContext{
+		reqCtx = contexthandler.Add(reqCtx, "request", &contexthandler.RequestContext{
 			ClientIP:  clientIP,
 			UserAgent: string(c.Request().Header.UserAgent()),
 			Accept:    s.getAccept(c),
 		})
-		res, err := handler(ctx, c)
+		res, err := handler(reqCtx, c)
 		if err != nil {
-			return c.Status(400).JSON(fiber.Map{"data": nil, "error": helpers.NewErrorFromError(err)})
+			return c.Status(statusForError(err)).JSON(fiber.Map{"data": nil, "error": helpers.NewErrorFromError(err)})
 		}
 
-		requestValues, err := contexthandler.Get(ctx, "request")
+		requestValues, err := contexthandler.Get(reqCtx, "request")
 		if err != nil {
 			return c.Status(400).JSON(fiber.Map{"data": nil, "error": helpers.NewErrorFromError(err)})
 		}

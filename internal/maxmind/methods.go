@@ -74,18 +74,12 @@ func (s *Service) downloadArchive(ctx context.Context, dbType string) error {
 	}
 
 	s.Log.Info("download finished", "dbType", dbType)
-	stat, err := archiveFile.Stat()
-	if err != nil {
-		return err
-	}
-	fmt.Println("stat size!!!!!!", dbType, stat.Size())
 
 	if !s.cfg.IPService.MaxMind.IsArchivePresent(dbType) {
 		return fmt.Errorf("archive file missing dbType: %s", dbType)
 	}
 
 	s.Log.Info("UnTar", "dbType", dbType)
-	//if err := s.unTAR(ctx, dbType); err != nil {
 	if err := s.unTarV3(ctx, dbType); err != nil {
 		span.SetStatus(codes.Error, err.Error())
 		return err
@@ -107,7 +101,7 @@ func (s *Service) parseHeader(ctx context.Context, resp *http.Response) (string,
 
 // getRemoteVersion retrieve the latest remote version.
 func (s *Service) getRemoteVersion(ctx context.Context, dbType string) (string, error) {
-	_, span := s.TP.Start(ctx, "maxmind:getRemoteVersion")
+	ctx, span := s.TP.Start(ctx, "maxmind:getRemoteVersion")
 	defer span.End()
 
 	remoteURL, err := s.cfg.IPService.MaxMind.URL(dbType)
@@ -233,13 +227,17 @@ func (s *Service) City(ctx context.Context, ip net.IP) (*geoip2.City, error) {
 	s.DBMeta["City"].MU.RLock()
 	defer s.DBMeta["City"].MU.RUnlock()
 
+	if s.DBCity == nil {
+		return nil, errors.New("city database not available")
+	}
+
 	return s.DBCity.City(ip)
 }
 
 // ASN return information about the ASN
 func (s *Service) ASN(ctx context.Context, ip net.IP) (*geoip2.ASN, error) {
 	s.Log.Debug("maxmind:ASN")
-	_, span := s.TP.Start(ctx, "maxmind:City")
+	ctx, span := s.TP.Start(ctx, "maxmind:ASN")
 	defer span.End()
 
 	s.Log.Debug("maxmind:ASN before RLock", "ip", ip.String())
@@ -248,6 +246,10 @@ func (s *Service) ASN(ctx context.Context, ip net.IP) (*geoip2.ASN, error) {
 	defer s.DBMeta[model.MaxmindDBTypeASN].MU.RUnlock()
 
 	s.Log.Debug("maxmind:ASN after RUnlock")
+
+	if s.DBASN == nil {
+		return nil, errors.New("ASN database not available")
+	}
 
 	asn, err := s.DBASN.ASN(ip)
 	if err != nil {
@@ -268,6 +270,10 @@ func (s *Service) ISP(ctx context.Context, ip net.IP) (*geoip2.ISP, error) {
 	s.DBMeta["City"].MU.RLock()
 	defer s.DBMeta["City"].MU.RUnlock()
 
+	if s.DBCity == nil {
+		return nil, errors.New("city database not available")
+	}
+
 	isp, err := s.DBCity.ISP(ip)
 	if err != nil {
 		s.Log.Error(err, "failed to get ISP")
@@ -282,8 +288,13 @@ func (s *Service) AnonymousIP(ctx context.Context, ip net.IP) (*geoip2.Anonymous
 	_, span := s.TP.Start(ctx, "maxmind:AnonymousIP")
 	defer span.End()
 
-	s.DBMeta[model.MaxmindDBTypeCity].MU.RLock()
-	defer s.DBMeta[model.MaxmindDBTypeCity].MU.RUnlock()
+	// Guard the ASN DB with its own lock since we read s.DBASN below.
+	s.DBMeta[model.MaxmindDBTypeASN].MU.RLock()
+	defer s.DBMeta[model.MaxmindDBTypeASN].MU.RUnlock()
+
+	if s.DBASN == nil {
+		return nil, errors.New("ASN database not available")
+	}
 
 	asnIP, err := s.DBASN.AnonymousIP(ip)
 	if err != nil {

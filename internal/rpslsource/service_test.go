@@ -59,7 +59,7 @@ func TestGetRemoteSerialHTTP(t *testing.T) {
 		switch r.URL.Path {
 		case "/CURRENTSERIAL":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("12345678"))
+			_, _ = w.Write([]byte("12345678"))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -123,7 +123,7 @@ func TestGetRemoteSerialHTTP_ContextCancelled(t *testing.T) {
 	})
 	service.httpClient = &http.Client{}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
 
 	_, err := service.getRemoteSerial(ctx)

@@ -2,10 +2,11 @@ package lctree
 
 import (
 	"context"
-	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/rpsl"
 	"net/netip"
 	"sync"
+
+	"github.com/SUNET/vc/pkg/logger"
 
 	patricia "github.com/kentik/patricia"
 	tree "github.com/kentik/patricia/generics_tree"

@@ -6,6 +6,7 @@ import (
 	"ip_service/pkg/model"
 	"math/big"
 	"net"
+	"sort"
 
 	ua "github.com/mileusna/useragent"
 	"inet.af/netaddr"
@@ -74,32 +75,6 @@ func (c *Client) asn(ctx context.Context) (uint, error) {
 	return m.AutonomousSystemNumber, nil
 }
 
-func (c *Client) asnOrganization(ctx context.Context) (string, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return "", err
-	}
-	m, err := c.max.ASN(ctx, net.ParseIP(ip))
-	if err != nil {
-		return "", nil
-	}
-	return m.AutonomousSystemOrganization, nil
-}
-
-func (c *Client) postal(ctx context.Context) (string, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		c.log.Error(err, "failed to get IP")
-		return "", err
-	}
-	m, err := c.max.City(ctx, net.ParseIP(ip))
-	if err != nil {
-		c.log.Error(err, "failed to get City")
-		return "", nil
-	}
-	return m.Postal.Code, nil
-}
-
 func (c *Client) city(ctx context.Context) (string, error) {
 	ip, err := c.getIP(ctx)
 	if err != nil {
@@ -157,53 +132,10 @@ func (c *Client) countryISO(ctx context.Context) (string, error) {
 	}
 	m, err := c.max.City(ctx, net.ParseIP(ip))
 	if err != nil {
-		return "", nil
+		c.log.Error(err, "failed to get City for country ISO")
+		return "", err
 	}
 	return m.Country.IsoCode, nil
-}
-
-func (c *Client) isEU(ctx context.Context) (bool, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return false, err
-	}
-	m, err := c.max.City(ctx, net.ParseIP(ip))
-	if err != nil {
-		return false, nil
-	}
-	return m.Country.IsInEuropeanUnion, nil
-}
-
-func (c *Client) is1918Network(ctx context.Context) (bool, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return false, err
-	}
-	return net.ParseIP(ip).IsPrivate(), nil
-}
-
-func (c *Client) timezone(ctx context.Context) (string, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return "", err
-	}
-	m, err := c.max.City(ctx, net.ParseIP(ip))
-	if err != nil {
-		return "", nil
-	}
-	return m.Location.TimeZone, nil
-}
-
-func (c *Client) continent(ctx context.Context) (string, error) {
-	ip, err := c.getIP(ctx)
-	if err != nil {
-		return "", err
-	}
-	m, err := c.max.City(ctx, net.ParseIP(ip))
-	if err != nil {
-		return "", nil
-	}
-	return m.Continent.Names["en"], nil
 }
 
 func (c *Client) formatAllJSON(ctx context.Context) (*model.ReplyIPInformation, error) {
@@ -321,10 +253,12 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 	reply.Timezone = cityRecord.Location.TimeZone
 	reply.Continent = cityRecord.Continent.Names["en"]
 
-	// Reverse DNS lookup
+	// Always emit an array (never null) for JSON consumers.
+	reply.PTR = []string{}
 	names, err := net.DefaultResolver.LookupAddr(ctx, ip)
 	if err == nil && len(names) > 0 {
-		reply.PTR = names[0]
+		sort.Strings(names)
+		reply.PTR = names
 	}
 
 	return reply, nil

@@ -5,8 +5,9 @@ import (
 	"ip_service/internal/maxmind"
 	"ip_service/internal/store"
 	"ip_service/internal/whois"
-	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
+
+	"github.com/SUNET/vc/pkg/logger"
 	"github.com/SUNET/vc/pkg/trace"
 )
 

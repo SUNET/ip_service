@@ -1,7 +1,6 @@
 package lctree
 
 import (
-	"context"
 	"fmt"
 	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/rpsl"
@@ -29,7 +28,7 @@ func TestBuild(t *testing.T) {
 		"ffff:db8:0:1::/64":  nil,
 	}
 
-	err := s.Build(context.Background(), rc)
+	err := s.Build(t.Context(), rc)
 	assert.NoError(t, err)
 
 	v4, v6 := s.CountTags()
@@ -45,7 +44,7 @@ func TestFindDeepestTag_IPv6(t *testing.T) {
 		"2001:db8:1::/48": nil,
 	}
 
-	err := s.Build(context.Background(), rc)
+	err := s.Build(t.Context(), rc)
 	assert.NoError(t, err)
 
 	// IP in the /48 should return the more specific prefix
@@ -72,7 +71,7 @@ func TestFindDeepestTag_IPv4(t *testing.T) {
 		"10.0.0.0/8":     nil,
 	}
 
-	err := s.Build(context.Background(), rc)
+	err := s.Build(t.Context(), rc)
 	assert.NoError(t, err)
 
 	tag, found := s.FindDeepestTag(netip.MustParseAddr("192.168.1.100"))
@@ -100,7 +99,7 @@ func TestFindTags_AllMatching(t *testing.T) {
 		"2001:db8:1:2::/64":  nil,
 	}
 
-	err := s.Build(context.Background(), rc)
+	err := s.Build(t.Context(), rc)
 	assert.NoError(t, err)
 
 	// Should find all enclosing prefixes
@@ -117,7 +116,7 @@ func TestAtomicRebuild(t *testing.T) {
 	rc1 := rpsl.RouterClass{
 		"2001:db8::/32": nil,
 	}
-	err := s.Build(context.Background(), rc1)
+	err := s.Build(t.Context(), rc1)
 	assert.NoError(t, err)
 
 	tag, found := s.FindDeepestTag(netip.MustParseAddr("2001:db8::1"))
@@ -128,7 +127,7 @@ func TestAtomicRebuild(t *testing.T) {
 	rc2 := rpsl.RouterClass{
 		"2001:db9::/32": nil,
 	}
-	err = s.Build(context.Background(), rc2)
+	err = s.Build(t.Context(), rc2)
 	assert.NoError(t, err)
 
 	// Old prefix should be gone
@@ -147,7 +146,7 @@ func BenchmarkFindDeepestTag_IPv6(b *testing.B) {
 
 	// Build a tree with realistic number of prefixes
 	rc := make(rpsl.RouterClass)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		prefix := netip.MustParsePrefix("2001:db8::" + fmt.Sprintf("%x", i) + "/128")
 		rc[prefix.String()] = nil
 	}
@@ -155,12 +154,11 @@ func BenchmarkFindDeepestTag_IPv6(b *testing.B) {
 	rc["2001:db8::/32"] = nil
 	rc["2001::/16"] = nil
 
-	s.Build(context.Background(), rc)
+	_ = s.Build(b.Context(), rc)
 
 	ip := netip.MustParseAddr("2001:db8::ff")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s.FindDeepestTag(ip)
 	}
 }
@@ -175,12 +173,11 @@ func BenchmarkFindTags_IPv6(b *testing.B) {
 	rc["2001:db8:1:2::/64"] = nil
 	rc["2001::/16"] = nil
 
-	s.Build(context.Background(), rc)
+	_ = s.Build(b.Context(), rc)
 
 	ip := netip.MustParseAddr("2001:db8:1:2::1")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s.FindTags(ip)
 	}
 }
