@@ -1,4 +1,4 @@
-.PHONY: update clean build build-all run package deploy test authors dist deadcode gh-install gh-auth
+.PHONY: update clean build build-all run package deploy test authors dist deadcode gh-install gh-auth release check_current_branch
 
 gosec:
 	$(info Run gosec)
@@ -46,7 +46,11 @@ ifndef VERSION
 VERSION := latest
 endif
 
-DOCKER_TAG_IP_SERVICE 		:= docker.sunet.se/ip_service:$(VERSION)
+NAME                    := ip_service
+REGISTRY                := docker.sunet.se
+CURRENT_BRANCH          := $(shell git rev-parse --abbrev-ref HEAD)
+
+DOCKER_TAG_IP_SERVICE 		:= $(REGISTRY)/$(NAME):$(VERSION)
 
 docker-build-ip_service:
 	$(info Docker Building ip_service with tag: $(VERSION))
@@ -61,6 +65,68 @@ dev_turnover: stop clean docker-build-ip_service start
 docker-push:
 	$(info Docker Pushing ip_service with tag: $(VERSION))
 	docker push $(DOCKER_TAG_IP_SERVICE)
+
+# ==============================================================================
+# Release Management
+# ==============================================================================
+
+BUMP                    ?= patch
+FORCE                   ?=
+
+check_current_branch:
+	$(info Current branch: $(CURRENT_BRANCH))
+ifeq ($(CURRENT_BRANCH),main)
+	$(info On main branch)
+else
+ifneq ($(FORCE),true)
+	$(error Not on main branch — use FORCE=true to override)
+else
+	$(warning Not on main branch — continuing because FORCE=true)
+endif
+endif
+
+release: check_current_branch ## Create and push a git tag (BUMP=major|minor|patch)
+	@echo "$(BUMP)" | grep -qE '^(major|minor|patch)$$' || \
+		{ echo "Error: BUMP must be major, minor, or patch (got: $(BUMP))"; exit 1; }
+	@if [ "$(FORCE)" != "true" ] && ! git diff --quiet HEAD 2>/dev/null; then \
+		echo "Error: working tree is dirty — commit or stash changes first (use FORCE=true to override)"; exit 1; \
+	fi
+	@LATEST=$$(git tag -l "v*" --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -n1); \
+	if [ -z "$$LATEST" ]; then \
+		echo "No existing version tags found, starting at v0.0.0"; \
+		LATEST="v0.0.0"; \
+	fi; \
+	CURRENT=$$(echo "$$LATEST" | sed 's/^v//'); \
+	MAJOR=$$(echo "$$CURRENT" | cut -d. -f1); \
+	MINOR=$$(echo "$$CURRENT" | cut -d. -f2); \
+	PATCH=$$(echo "$$CURRENT" | cut -d. -f3); \
+	case "$(BUMP)" in \
+		major) MAJOR=$$((MAJOR + 1)); MINOR=0; PATCH=0 ;; \
+		minor) MINOR=$$((MINOR + 1)); PATCH=0 ;; \
+		patch) PATCH=$$((PATCH + 1)) ;; \
+	esac; \
+	NEW_TAG="v$${MAJOR}.$${MINOR}.$${PATCH}"; \
+	DOCKER_IMAGE="$(REGISTRY)/$(NAME):$$NEW_TAG"; \
+	DOCKER_LATEST="$(REGISTRY)/$(NAME):latest"; \
+	echo ""; \
+	echo "Bumping $$LATEST -> $$NEW_TAG ($(BUMP))"; \
+	echo ""; \
+	echo "==> Building Docker image $$DOCKER_IMAGE"; \
+	docker build \
+		--build-arg GIT_COMMIT=$$(git rev-list -1 HEAD) \
+		--build-arg GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD) \
+		--tag "$$DOCKER_IMAGE" --tag "$$DOCKER_LATEST" .; \
+	echo "==> Pushing $$DOCKER_IMAGE"; \
+	docker push "$$DOCKER_IMAGE"; \
+	echo "==> Pushing $$DOCKER_LATEST (-> $$NEW_TAG)"; \
+	docker push "$$DOCKER_LATEST"; \
+	echo ""; \
+	echo "==> Tagging git $$NEW_TAG"; \
+	git tag -a "$$NEW_TAG" -m "Release $$NEW_TAG"; \
+	git push origin "$$NEW_TAG"; \
+	echo ""; \
+	echo "==> Release $$NEW_TAG created and pushed"; \
+	echo ""
 
 build-tester:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o ./bin/tester_ip -ldflags "-w -s --extldflags '-static'" ./cmd/tester/main.go
