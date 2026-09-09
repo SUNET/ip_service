@@ -2,12 +2,12 @@ package apiv1
 
 import (
 	"context"
+	"github.com/SUNET/vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/trace"
 	"ip_service/internal/maxmind"
 	"ip_service/internal/store"
 	"ip_service/pkg/contexthandler"
-	"github.com/SUNET/vc/pkg/logger"
 	"ip_service/pkg/model"
-	"github.com/SUNET/vc/pkg/trace"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -91,7 +91,7 @@ func TestIPJSON(t *testing.T) {
 	tts := []struct {
 		name string
 		have *contexthandler.RequestContext
-		want map[string]interface{}
+		want map[string]any
 	}{
 		{
 			name: "OK",
@@ -199,7 +199,7 @@ func TestASNJSON(t *testing.T) {
 	tts := []struct {
 		name string
 		have *contexthandler.RequestContext
-		want map[string]interface{}
+		want map[string]any
 	}{
 		{
 			name: "OK",
@@ -253,14 +253,14 @@ func TestCountryISOJSON(t *testing.T) {
 	tts := []struct {
 		name string
 		have *contexthandler.RequestContext
-		want map[string]interface{}
+		want map[string]any
 	}{
 		{
 			name: "OK",
 			have: &contexthandler.RequestContext{
 				ClientIP: mockIP,
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"country_iso": "SE",
 			},
 		},

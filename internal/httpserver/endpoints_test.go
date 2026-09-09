@@ -522,7 +522,7 @@ type testViewEngine struct{}
 
 func (e *testViewEngine) Load() error { return nil }
 
-func (e *testViewEngine) Render(w io.Writer, name string, data interface{}, layout ...string) error {
+func (e *testViewEngine) Render(w io.Writer, name string, data any, layout ...string) error {
 	tmpl, err := template.ParseFiles("./templates/" + name + ".html")
 	if err != nil {
 		return err
