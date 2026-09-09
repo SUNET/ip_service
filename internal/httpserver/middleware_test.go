@@ -215,5 +215,8 @@ func TestMiddlewareTimeoutFires(t *testing.T) {
 	// Nothing to assert about timing precisely; just make sure no panic.
 	req := httptest.NewRequest("GET", "/slow", nil)
 	// Cap the test's own wait so it doesn't hang.
-	_, _ = app.Test(req, 100)
+	resp, _ := app.Test(req, 100)
+	if resp != nil {
+		resp.Body.Close()
+	}
 }

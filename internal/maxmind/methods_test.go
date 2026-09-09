@@ -3,7 +3,6 @@ package maxmind
 import (
 	"context"
 	"fmt"
-	"io"
 	"ip_service/pkg/model"
 	"net/http"
 	"net/http/httptest"
@@ -187,7 +186,7 @@ func TestOpenDB(t *testing.T) {
 			tempDir := t.TempDir()
 
 			// Pre-place the mmdb so IsDBPresent is true and loadDB can open it.
-			copyTestFile(t, filepath.Join("testdata", fmt.Sprintf("GeoLite2-%s.mmdb", tt.have.dbType)),
+			copyFile(t, filepath.Join("testdata", fmt.Sprintf("GeoLite2-%s.mmdb", tt.have.dbType)),
 				filepath.Join(tempDir, fmt.Sprintf("GeoLite2-%s.mmdb", tt.have.dbType)))
 
 			service := mockService(t, tempDir, server.URL, false)
@@ -198,16 +197,3 @@ func TestOpenDB(t *testing.T) {
 	}
 }
 
-func copyTestFile(t *testing.T, src, dst string) {
-	t.Helper()
-	in, err := os.Open(src)
-	assert.NoError(t, err)
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	assert.NoError(t, err)
-	defer out.Close()
-
-	_, err = io.Copy(out, in)
-	assert.NoError(t, err)
-}
