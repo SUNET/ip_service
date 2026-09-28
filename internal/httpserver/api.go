@@ -35,7 +35,7 @@ type Apiv1 interface {
 
 	Collision(ctx context.Context, indata *apiv1.CollisionRequest) (*apiv1.CollisionReply, error)
 
-	Whois(ctx context.Context, indata *apiv1.WhoisRequest) ([]rpsl.ASN, error)
+	Whois(ctx context.Context, indata *apiv1.WhoisRequest) (rpsl.ASN, error)
 
 	Status(ctx context.Context) (*model.StatusReply, error)
 }

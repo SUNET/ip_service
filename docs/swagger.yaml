@@ -165,9 +165,7 @@ definitions:
   rpsl.Object:
     properties:
       country:
-        items:
-          type: string
-        type: array
+        type: string
       created:
         type: string
       descr:
@@ -442,8 +440,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: takes query parameter ip and returns whois information in JSON
-        format
+      description: takes query parameter ip and returns whois information for the
+        most-specific matching prefix in JSON format
       operationId: whois
       parameters:
       - description: ip

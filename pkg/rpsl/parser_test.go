@@ -164,7 +164,7 @@ source:         RIPE
 	assert.Equal(t, "SUNET", obj.Netname)
 	assert.Equal(t, "ASSIGNED", obj.Status)
 	assert.Contains(t, obj.Descr, "SUNET ipv6-servernetwork")
-	assert.Contains(t, obj.Country, "SE")
+	assert.Equal(t, "SE", obj.Country)
 
 	route, ok := client.RouterClass["2001:6b0::/32"]
 	require.True(t, ok, "expected route6 /32 in RouterClass")
@@ -334,11 +334,11 @@ func TestObjectAdd(t *testing.T) {
 			},
 		},
 		{
-			name:  "country appends",
+			name:  "country sets string",
 			key:   Country,
 			value: "SE",
 			check: func(t *testing.T, obj *Object) {
-				assert.Contains(t, obj.Country, "SE")
+				assert.Equal(t, "SE", obj.Country)
 			},
 		},
 		{

@@ -312,7 +312,7 @@ const docTemplate = `{
         },
         "/whois/{ip}": {
             "get": {
-                "description": "takes query parameter ip and returns whois information in JSON format",
+                "description": "takes query parameter ip and returns whois information for the most-specific matching prefix in JSON format",
                 "consumes": [
                     "application/json"
                 ],
@@ -602,10 +602,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "country": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "type": "string"
                 },
                 "created": {
                     "type": "string"

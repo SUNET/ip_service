@@ -130,7 +130,7 @@ type Object struct {
 	Netname      string   `json:"netname,omitempty"`
 	Descr        []string `json:"descr,omitempty"`
 	Status       string   `json:"status,omitempty"`
-	Country      []string `json:"country,omitempty"`
+	Country      string   `json:"country,omitempty"`
 	Remarks      []string `json:"remarks,omitempty"`
 	Created      string   `json:"created,omitempty"`
 	LastModified string   `json:"last-modified,omitempty"`
@@ -186,7 +186,7 @@ func (r *Object) Add(key, value string) error {
 	case Origin:
 		r.Origin = value
 	case Country:
-		r.Country = append(r.Country, value)
+		r.Country = value
 	case Remarks:
 		r.Remarks = append(r.Remarks, value)
 	case Created:
