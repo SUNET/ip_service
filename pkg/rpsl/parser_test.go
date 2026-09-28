@@ -121,6 +121,57 @@ origin:         AS64514
 	assert.False(t, ok, "should not parse objects after # EOF")
 }
 
+func TestParseInet6num(t *testing.T) {
+	content := `inet6num:       2001:6b0:7::/48
+netname:        SUNET
+descr:          SUNET ipv6-servernetwork
+country:        SE
+admin-c:        NUN6-RIPE
+tech-c:         NUN6-RIPE
+mnt-by:         SUNET-MNT
+status:         ASSIGNED
+created:        2002-05-14T12:05:43Z
+last-modified:  2008-02-05T13:08:39Z
+source:         RIPE
+
+route6:         2001:6b0::/32
+origin:         AS1653
+source:         RIPE
+
+# EOF
+`
+	tmpFile := filepath.Join(t.TempDir(), "inet6num_test.txt")
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	require.NoError(t, err)
+
+	ctx := t.Context()
+	client, err := New(ctx)
+	require.NoError(t, err)
+
+	// Reset package-level state (interCount leaks between Parse calls)
+	interCount = 0
+
+	err = client.Parse(ctx, tmpFile)
+	require.NoError(t, err)
+
+	require.Len(t, client.RouterClass, 2)
+
+	assignment, ok := client.RouterClass["2001:6b0:7::/48"]
+	require.True(t, ok, "expected inet6num /48 in RouterClass")
+	obj, ok := assignment["SUNET"]
+	require.True(t, ok, "inet6num should be keyed by netname")
+	assert.Equal(t, "2001:6b0:7::/48", obj.Network)
+	assert.Equal(t, "SUNET", obj.Netname)
+	assert.Equal(t, "ASSIGNED", obj.Status)
+	assert.Contains(t, obj.Descr, "SUNET ipv6-servernetwork")
+	assert.Contains(t, obj.Country, "SE")
+
+	route, ok := client.RouterClass["2001:6b0::/32"]
+	require.True(t, ok, "expected route6 /32 in RouterClass")
+	_, ok = route["AS1653"]
+	assert.True(t, ok, "route6 should be keyed by origin ASN")
+}
+
 func TestParseCommentSkipping(t *testing.T) {
 	content := `# This is a comment
 # Another comment
@@ -259,11 +310,11 @@ func TestObjectAdd(t *testing.T) {
 			},
 		},
 		{
-			name:  "descr is ignored",
+			name:  "descr appends",
 			key:   Descr,
 			value: "first line",
 			check: func(t *testing.T, obj *Object) {
-				// descr is no longer stored
+				assert.Contains(t, obj.Descr, "first line")
 			},
 		},
 		{

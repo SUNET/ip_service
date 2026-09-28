@@ -610,7 +610,16 @@ const docTemplate = `{
                 "created": {
                     "type": "string"
                 },
+                "descr": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "last-modified": {
+                    "type": "string"
+                },
+                "netname": {
                     "type": "string"
                 },
                 "network": {
@@ -636,6 +645,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },

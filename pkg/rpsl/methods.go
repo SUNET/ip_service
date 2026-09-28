@@ -73,11 +73,14 @@ func (s *Client) Parse(ctx context.Context, databaseFilePath string) error {
 			// Insert directly into RouterClass
 			if isRouteObject && s.currentRouteObject.Network != "" {
 				obj := s.currentRouteObject
-				routerClass, ok := s.RouterClass[obj.Network]
-				if !ok {
-					s.RouterClass[obj.Network] = map[string]*Object{obj.Origin: obj}
-				} else {
-					routerClass[obj.Origin] = obj
+				mapKey := obj.MapKey()
+				if mapKey != "" {
+					routerClass, ok := s.RouterClass[obj.Network]
+					if !ok {
+						s.RouterClass[obj.Network] = map[string]*Object{mapKey: obj}
+					} else {
+						routerClass[mapKey] = obj
+					}
 				}
 			}
 
@@ -88,7 +91,7 @@ func (s *Client) Parse(ctx context.Context, databaseFilePath string) error {
 
 		key := s.getKey(line)
 		if interCount == 1 {
-			if key == Route || key == Route6 {
+			if key == Route || key == Route6 || key == Inet6num {
 				isRouteObject = true
 			} else {
 				isRouteObject = false

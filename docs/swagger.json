@@ -602,7 +602,16 @@
                 "created": {
                     "type": "string"
                 },
+                "descr": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "last-modified": {
+                    "type": "string"
+                },
+                "netname": {
                     "type": "string"
                 },
                 "network": {
@@ -628,6 +637,9 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },

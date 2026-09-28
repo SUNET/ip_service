@@ -4,8 +4,10 @@ import (
 	"context"
 	"ip_service/pkg/contexthandler"
 	"ip_service/pkg/model"
+	"ip_service/pkg/rpsl"
 	"math/big"
 	"net"
+	"net/netip"
 	"sort"
 
 	ua "github.com/mileusna/useragent"
@@ -225,10 +227,26 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 
 	c.log.Debug("before whois")
 
-	reply.Whois, err = c.whois.QueryIP(ctx, reply.IP)
-	if err != nil {
-		c.log.Error(err, "failed to get route info from radb", "ip", reply.IP)
-		return nil, err
+	parsedAddr, addrErr := netip.ParseAddr(reply.IP)
+	if addrErr == nil {
+		matches, err := c.whois.QueryIPAll(ctx, parsedAddr)
+		if err != nil {
+			c.log.Error(err, "failed to get route info from radb", "ip", reply.IP)
+			return nil, err
+		}
+		// Merge all matching prefixes (route/route6 by ASN, inet6num by
+		// netname) into a single map so the caller sees both the covering
+		// route and any more-specific inet6num assignment.
+		if len(matches) > 0 {
+			reply.Whois = make(map[string]*rpsl.Object)
+			for _, asn := range matches {
+				for k, obj := range asn {
+					reply.Whois[k] = obj
+				}
+			}
+		}
+	} else {
+		c.log.Debug("failed to parse IP for whois lookup", "ip", reply.IP, "error", addrErr)
 	}
 
 	c.log.Debug("after whois")

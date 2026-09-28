@@ -170,7 +170,13 @@ definitions:
         type: array
       created:
         type: string
+      descr:
+        items:
+          type: string
+        type: array
       last-modified:
+        type: string
+      netname:
         type: string
       network:
         type: string
@@ -188,6 +194,8 @@ definitions:
         items:
           type: string
         type: array
+      status:
+        type: string
     type: object
   useragent.UserAgent:
     properties:
