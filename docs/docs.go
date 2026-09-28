@@ -608,10 +608,7 @@ const docTemplate = `{
                     }
                 },
                 "created": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "type": "string"
                 },
                 "last-modified": {
                     "type": "string"

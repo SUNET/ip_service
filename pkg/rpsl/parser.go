@@ -128,7 +128,7 @@ type Object struct {
 	Origin       string   `json:"origin,omitempty"`
 	Country      []string `json:"country,omitempty"`
 	Remarks      []string `json:"remarks,omitempty"`
-	Created      []string `json:"created,omitempty"`
+	Created      string   `json:"created,omitempty"`
 	LastModified string   `json:"last-modified,omitempty"`
 	Owner        string   `json:"owner,omitempty"`
 	ORGName      string   `json:"org-name,omitempty"`
@@ -163,7 +163,7 @@ func (r *Object) Add(key, value string) error {
 	case Remarks:
 		r.Remarks = append(r.Remarks, value)
 	case Created:
-		r.Created = append(r.Created, value)
+		r.Created = value
 	case LastModified:
 		r.LastModified = value
 	case Owner:

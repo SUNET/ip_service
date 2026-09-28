@@ -169,9 +169,7 @@ definitions:
           type: string
         type: array
       created:
-        items:
-          type: string
-        type: array
+        type: string
       last-modified:
         type: string
       network:
