@@ -25,8 +25,6 @@ func TestParse(t *testing.T) {
 			rpslService, err := New(ctx)
 			assert.NoError(t, err)
 
-			interCount = 0
-
 			err = rpslService.Parse(ctx, "./testdata/"+tt.filePath)
 			assert.NoError(t, err)
 

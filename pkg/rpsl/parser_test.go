@@ -1,6 +1,7 @@
 package rpsl
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -44,9 +45,6 @@ func TestParseRouteObjects(t *testing.T) {
 			ctx := t.Context()
 			client, err := New(ctx)
 			require.NoError(t, err)
-
-			// Reset package-level state that leaks between Parse calls
-			interCount = 0
 
 			err = client.Parse(ctx, tt.filePath)
 			require.NoError(t, err)
@@ -148,9 +146,6 @@ source:         RIPE
 	client, err := New(ctx)
 	require.NoError(t, err)
 
-	// Reset package-level state (interCount leaks between Parse calls)
-	interCount = 0
-
 	err = client.Parse(ctx, tmpFile)
 	require.NoError(t, err)
 
@@ -165,6 +160,8 @@ source:         RIPE
 	assert.Equal(t, "ASSIGNED", obj.Status)
 	assert.Contains(t, obj.Descr, "SUNET ipv6-servernetwork")
 	assert.Equal(t, "SE", obj.Country)
+	assert.Equal(t, "2002-05-14T12:05:43Z", obj.Created)
+	assert.Equal(t, "2008-02-05T13:08:39Z", obj.LastModified)
 
 	route, ok := client.RouterClass["2001:6b0::/32"]
 	require.True(t, ok, "expected route6 /32 in RouterClass")
@@ -249,9 +246,6 @@ source:         TEST
 	ctx := t.Context()
 	client, err := New(ctx)
 	require.NoError(t, err)
-
-	// Reset package-level state (interCount leaks between Parse calls)
-	interCount = 0
 
 	err = client.Parse(ctx, tmpFile)
 	require.NoError(t, err)
@@ -375,6 +369,26 @@ func TestObjectAdd(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestObjectCreatedJSON guards the JSON shape of the `created` attribute: it
+// must be emitted as a plain string, not an array, so downstream consumers of
+// the whois payload keep working.
+func TestObjectCreatedJSON(t *testing.T) {
+	obj := &Object{}
+	require.NoError(t, obj.Add(Created, "2002-05-14T12:05:43Z"))
+	assert.Equal(t, "2002-05-14T12:05:43Z", obj.Created)
+
+	b, err := json.Marshal(obj)
+	require.NoError(t, err)
+	assert.Contains(t, string(b), `"created":"2002-05-14T12:05:43Z"`)
+
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal(b, &decoded))
+	created, ok := decoded["created"]
+	require.True(t, ok, "created should be present in JSON output")
+	_, isString := created.(string)
+	assert.True(t, isString, "created must be serialized as a JSON string, got %T", created)
 }
 
 func TestObjectFindNetwork(t *testing.T) {
