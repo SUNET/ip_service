@@ -165,14 +165,16 @@ definitions:
   rpsl.Object:
     properties:
       country:
-        items:
-          type: string
-        type: array
+        type: string
       created:
+        type: string
+      descr:
         items:
           type: string
         type: array
       last-modified:
+        type: string
+      netname:
         type: string
       network:
         type: string
@@ -190,6 +192,8 @@ definitions:
         items:
           type: string
         type: array
+      status:
+        type: string
     type: object
   useragent.UserAgent:
     properties:
@@ -436,8 +440,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: takes query parameter ip and returns whois information in JSON
-        format
+      description: takes query parameter ip and returns whois information for the
+        most-specific matching prefix in JSON format
       operationId: whois
       parameters:
       - description: ip

@@ -63,6 +63,7 @@ func New(ctx context.Context, cfg *model.Cfg, tree *lctree.Service, store *store
 		RemoteFiles: []rpslsource.RemoteFile{
 			{Name: "route6", Path: "/ripe/dbase/split/ripe.db.route6.gz"},
 			{Name: "route", Path: "/ripe/dbase/split/ripe.db.route.gz"},
+			{Name: "inet6num", Path: "/ripe/dbase/split/ripe.db.inet6num.gz"},
 		},
 		SerialPath:   "/ripe/dbase/RIPE.CURRENTSERIAL",
 		Host:         "https://ftp.ripe.net",

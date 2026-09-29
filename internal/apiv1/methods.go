@@ -6,6 +6,7 @@ import (
 	"ip_service/pkg/model"
 	"math/big"
 	"net"
+	"net/netip"
 	"sort"
 
 	ua "github.com/mileusna/useragent"
@@ -225,10 +226,17 @@ func (c *Client) formatLookUpJSON(ctx context.Context) (*model.ReplyLookUp, erro
 
 	c.log.Debug("before whois")
 
-	reply.Whois, err = c.whois.QueryIP(ctx, reply.IP)
-	if err != nil {
-		c.log.Error(err, "failed to get route info from radb", "ip", reply.IP)
-		return nil, err
+	if _, addrErr := netip.ParseAddr(reply.IP); addrErr == nil {
+		match, err := c.whois.QueryIP(ctx, reply.IP)
+		if err != nil {
+			c.log.Error(err, "failed to get route info from radb", "ip", reply.IP)
+			return nil, err
+		}
+		if len(match) > 0 {
+			reply.Whois = match
+		}
+	} else {
+		c.log.Debug("failed to parse IP for whois lookup", "ip", reply.IP, "error", addrErr)
 	}
 
 	c.log.Debug("after whois")

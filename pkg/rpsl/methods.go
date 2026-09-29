@@ -38,8 +38,6 @@ func (s *Client) getValue(line, key string) string {
 	return strings.Clone(strings.TrimSpace(line))
 }
 
-var interCount int
-
 func (s *Client) Parse(ctx context.Context, databaseFilePath string) error {
 	file, err := os.Open(filepath.Clean(databaseFilePath))
 	if err != nil {
@@ -47,11 +45,20 @@ func (s *Client) Parse(ctx context.Context, databaseFilePath string) error {
 	}
 	defer file.Close()
 
+	// Reset per-Parse state so leftover in-progress records from a previous
+	// invocation (e.g. a source file that did not end with a blank line)
+	// cannot leak into this run.
+	s.currentRouteObject = &Object{}
+	s.currentKey = nil
+
 	scanner := bufio.NewScanner(file)
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
 
-	var isRouteObject bool
+	var (
+		isRouteObject bool
+		interCount    int
+	)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -73,11 +80,14 @@ func (s *Client) Parse(ctx context.Context, databaseFilePath string) error {
 			// Insert directly into RouterClass
 			if isRouteObject && s.currentRouteObject.Network != "" {
 				obj := s.currentRouteObject
-				routerClass, ok := s.RouterClass[obj.Network]
-				if !ok {
-					s.RouterClass[obj.Network] = map[string]*Object{obj.Origin: obj}
-				} else {
-					routerClass[obj.Origin] = obj
+				mapKey := obj.MapKey()
+				if mapKey != "" {
+					routerClass, ok := s.RouterClass[obj.Network]
+					if !ok {
+						s.RouterClass[obj.Network] = map[string]*Object{mapKey: obj}
+					} else {
+						routerClass[mapKey] = obj
+					}
 				}
 			}
 
@@ -88,7 +98,7 @@ func (s *Client) Parse(ctx context.Context, databaseFilePath string) error {
 
 		key := s.getKey(line)
 		if interCount == 1 {
-			if key == Route || key == Route6 {
+			if key == Route || key == Route6 || key == Inet6num {
 				isRouteObject = true
 			} else {
 				isRouteObject = false

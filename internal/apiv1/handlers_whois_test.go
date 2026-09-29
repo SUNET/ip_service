@@ -35,13 +35,17 @@ func TestWhois(t *testing.T) {
 	mockObject := &rpsl.Object{
 		Network: "2001:db8::/32",
 	}
+	mockObjectSpecific := &rpsl.Object{
+		Network: "2001:db8:1::/48",
+	}
 
 	tts := []struct {
-		name        string
-		routerClass rpsl.RouterClass
-		request     *WhoisRequest
-		wantLen     int
-		wantErr     bool
+		name         string
+		routerClass  rpsl.RouterClass
+		request      *WhoisRequest
+		wantLen      int
+		wantContains []string
+		wantErr      bool
 	}{
 		{
 			name: "valid IPv6 - single match",
@@ -50,23 +54,25 @@ func TestWhois(t *testing.T) {
 					"AS64512": mockObject,
 				},
 			},
-			request: &WhoisRequest{IP: "2001:db8::1"},
-			wantLen: 1,
-			wantErr: false,
+			request:      &WhoisRequest{IP: "2001:db8::1"},
+			wantLen:      1,
+			wantContains: []string{"AS64512"},
+			wantErr:      false,
 		},
 		{
-			name: "valid IPv6 - multiple overlapping prefixes",
+			name: "valid IPv6 - overlapping prefixes returns most specific",
 			routerClass: rpsl.RouterClass{
 				"2001:db8::/32": rpsl.ASN{
 					"AS64512": mockObject,
 				},
 				"2001:db8:1::/48": rpsl.ASN{
-					"AS64513": mockObject,
+					"AS64513": mockObjectSpecific,
 				},
 			},
-			request: &WhoisRequest{IP: "2001:db8:1::1"},
-			wantLen: 2,
-			wantErr: false,
+			request:      &WhoisRequest{IP: "2001:db8:1::1"},
+			wantLen:      1,
+			wantContains: []string{"AS64513"},
+			wantErr:      false,
 		},
 		{
 			name: "valid IPv6 - no match",
@@ -86,9 +92,10 @@ func TestWhois(t *testing.T) {
 					"AS64512": mockObject,
 				},
 			},
-			request: &WhoisRequest{IP: "192.168.1.1"},
-			wantLen: 1,
-			wantErr: false,
+			request:      &WhoisRequest{IP: "192.168.1.1"},
+			wantLen:      1,
+			wantContains: []string{"AS64512"},
+			wantErr:      false,
 		},
 		{
 			name: "valid IPv4 - no match",
@@ -119,15 +126,16 @@ func TestWhois(t *testing.T) {
 			name: "IPv6 most specific prefix returned",
 			routerClass: rpsl.RouterClass{
 				"2001:67c:2564::/48": rpsl.ASN{
-					"AS1653": mockObject,
+					"AS1653-specific": mockObjectSpecific,
 				},
 				"2001:67c::/32": rpsl.ASN{
 					"AS1653": mockObject,
 				},
 			},
-			request: &WhoisRequest{IP: "2001:67c:2564::1"},
-			wantLen: 2,
-			wantErr: false,
+			request:      &WhoisRequest{IP: "2001:67c:2564::1"},
+			wantLen:      1,
+			wantContains: []string{"AS1653-specific"},
+			wantErr:      false,
 		},
 	}
 
@@ -148,6 +156,9 @@ func TestWhois(t *testing.T) {
 				assert.Nil(t, got)
 			} else {
 				assert.Len(t, got, tt.wantLen)
+				for _, key := range tt.wantContains {
+					assert.Contains(t, got, key)
+				}
 			}
 		})
 	}

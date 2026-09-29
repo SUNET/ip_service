@@ -121,19 +121,33 @@ func (r RouterClass) removeBlankRecords(ctx context.Context) {
 	}
 }
 
-// Object represents a parsed RPSL route object with a minimal set of fields
-// needed for the API response. Keeping this small is critical — ~1.5M objects in memory.
+// Object represents a parsed RPSL route/inet6num object with a minimal set of
+// fields needed for the API response. Keeping this small is critical — ~1.5M
+// objects in memory.
 type Object struct {
 	Network      string   `json:"network,omitempty"`
 	Origin       string   `json:"origin,omitempty"`
-	Country      []string `json:"country,omitempty"`
+	Netname      string   `json:"netname,omitempty"`
+	Descr        []string `json:"descr,omitempty"`
+	Status       string   `json:"status,omitempty"`
+	Country      string   `json:"country,omitempty"`
 	Remarks      []string `json:"remarks,omitempty"`
-	Created      []string `json:"created,omitempty"`
+	Created      string   `json:"created,omitempty"`
 	LastModified string   `json:"last-modified,omitempty"`
 	Owner        string   `json:"owner,omitempty"`
 	ORGName      string   `json:"org-name,omitempty"`
 	ORG          string   `json:"org,omitempty"`
 	OwnerID      string   `json:"ownerid,omitempty"`
+}
+
+// MapKey returns the identifier used to key this object inside an ASN map.
+// route/route6 objects are keyed by Origin (ASN); inet6num objects have no
+// origin and are keyed by Netname instead.
+func (r *Object) MapKey() string {
+	if r.Origin != "" {
+		return r.Origin
+	}
+	return r.Netname
 }
 
 func (no *Object) FindNetwork(ctx context.Context, ip string) (bool, error) {
@@ -156,14 +170,27 @@ func (r *Object) Add(key, value string) error {
 			return fmt.Errorf("route/route6 value is empty")
 		}
 		r.Network = value
+	case Inet6num:
+		if value == "" {
+			return fmt.Errorf("inet6num value is empty")
+		}
+		r.Network = value
+	case Netname:
+		r.Netname = value
+	case Descr:
+		if value != "" {
+			r.Descr = append(r.Descr, value)
+		}
+	case Status:
+		r.Status = value
 	case Origin:
 		r.Origin = value
 	case Country:
-		r.Country = append(r.Country, value)
+		r.Country = value
 	case Remarks:
 		r.Remarks = append(r.Remarks, value)
 	case Created:
-		r.Created = append(r.Created, value)
+		r.Created = value
 	case LastModified:
 		r.LastModified = value
 	case Owner:
