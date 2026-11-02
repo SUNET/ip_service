@@ -42,8 +42,6 @@ github.com/SUNET/vc/pkg/vc20/crypto
 github.com/SUNET/vc/pkg/vc20/crypto/common
 github.com/SUNET/vc/pkg/vc20/crypto/ecdsa
 github.com/SUNET/vc/pkg/vc20/crypto/eddsa
-# github.com/andybalholm/brotli v1.2.3
-## explicit; go 1.22
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
@@ -63,8 +61,6 @@ github.com/cespare/xxhash/v2
 # github.com/clipperhouse/uax29/v2 v2.7.0
 ## explicit; go 1.18
 github.com/clipperhouse/uax29/v2/graphemes
-# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-## explicit
 # github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 ## explicit; go 1.17
 github.com/decred/dcrd/dcrec/secp256k1/v4
@@ -82,7 +78,7 @@ github.com/gabriel-vasile/mimetype/internal/magic
 github.com/gabriel-vasile/mimetype/internal/markup
 github.com/gabriel-vasile/mimetype/internal/mp3
 github.com/gabriel-vasile/mimetype/internal/scan
-# github.com/go-jose/go-jose/v4 v4.1.5
+# github.com/go-jose/go-jose/v4 v4.1.6
 ## explicit; go 1.24.0
 github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher
@@ -112,8 +108,6 @@ github.com/go-openapi/spec
 # github.com/go-openapi/swag/conv v0.29.2
 ## explicit; go 1.26.0
 github.com/go-openapi/swag/conv
-# github.com/go-openapi/swag/jsonname v0.29.2
-## explicit; go 1.26.0
 # github.com/go-openapi/swag/jsonutils v0.29.2
 ## explicit; go 1.26.0
 github.com/go-openapi/swag/jsonutils
@@ -241,10 +235,6 @@ github.com/jackc/puddle/v2/internal/genstack
 # github.com/jellydator/ttlcache/v3 v3.4.1
 ## explicit; go 1.23.0
 github.com/jellydator/ttlcache/v3
-# github.com/jinzhu/inflection v1.0.0
-## explicit
-# github.com/jinzhu/now v1.1.5
-## explicit; go 1.12
 # github.com/jlaffaye/ftp v0.2.4
 ## explicit; go 1.20
 github.com/jlaffaye/ftp
@@ -375,8 +365,6 @@ github.com/peterbourgon/diskv/v3
 ## explicit; go 1.21
 github.com/piprate/json-gold/ld
 github.com/piprate/json-gold/ld/internal/jsoncanonicalizer
-# github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
-## explicit
 # github.com/pquerna/cachecontrol v0.2.0
 ## explicit; go 1.16
 github.com/pquerna/cachecontrol
@@ -840,10 +828,6 @@ google.golang.org/protobuf/types/known/wrapperspb
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
-# gopkg.in/yaml.v3 v3.0.1
-## explicit
-# gorm.io/gorm v1.31.2
-## explicit; go 1.18
 # gotest.tools/v3 v3.5.2
 ## explicit; go 1.17
 gotest.tools/v3/assert
